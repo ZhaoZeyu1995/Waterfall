@@ -1,0 +1,38 @@
+# loss_func
+loss: ctc_softmax
+init_eta: 1.0
+# batch
+batch_size: 6
+# data pipeline
+num_workers: 12
+# multi-gpu training
+strategy: ddp
+# optimiser
+#optimiser: adam
+#learning_rate: 1e-3
+#factor: 0.2
+#eps: 1e-8
+#weight_decay: 0.
+#lr_patience: 2
+# random seed
+seed: 777
+# early_stopping
+early_stopping: false
+patience: 4
+# for debugging
+max_steps: -1
+max_epochs: 1000
+
+# eta_scheduler
+auto_eta_scheduler: true
+delta_eta: 0.005
+final_eta: 1.05
+patience_eta: 3
+
+# fine-tuning
+
+model: WAV2VEC2_LARGE_LV60K
+finetune_layers: 2
+
+# modelcheckpoint saving
+save_top_k: -1
