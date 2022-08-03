@@ -304,7 +304,8 @@ class Wav2VecFineTuningDiverse(pl.LightningModule):
                 loss = numerator
             else:
                 if 'den_with_lexicon' in self.cfg.keys() and self.cfg['den_with_lexicon']:
-                    den_decoding_graph = self.lang.den_graph.to(log_probs.device)
+                    den_decoding_graph = self.lang.den_graph.to(
+                        log_probs.device)
                 else:
                     den_decoding_graph = self.lang.topo.to(log_probs.device)
 
@@ -327,20 +328,18 @@ class Wav2VecFineTuningDiverse(pl.LightningModule):
 
     def training_step(self, batch, batch_idx, optimizer_idx=None):
         loss = self.division(batch, batch_idx, optimizer_idx)
-        self.log('loss', loss, on_step=True,
-                 on_epoch=True, sync_dist=True)
+        self.log('loss', loss, on_epoch=True, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss = self.division(batch, batch_idx)
         self.log('valid_loss', loss, prog_bar=True,
-                 on_step=True, on_epoch=True, sync_dist=True)
+                 on_epoch=True, sync_dist=True)
         return loss
 
     def test_step(self, batch, batch_idx):
         loss = self.division(batch, batch_idx)
-        self.log('test_loss', loss, on_step=True,
-                 on_epoch=True, sync_dist=True)
+        self.log('test_loss', loss, on_epoch=True, sync_dist=True)
         return loss
 
     def predict_step(self, batch, batch_idx):

@@ -11,3 +11,5 @@ egs/*/*/steps
 egs/*/*/utils
 egs/*/*/exp
 egs/*/*/any_run.sh
+
+tools/kaldi
