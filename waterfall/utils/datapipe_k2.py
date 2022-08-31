@@ -119,7 +119,7 @@ class Dataset(torch.utils.data.Dataset):
         uttid = self.uttids[idx]
         spk = self.utt2spk[uttid]
         text = self.utt2text[uttid]
-        target = tokenise(text, self.lang.token2idx)
+        target = []
         words = text.split(' ')
         word_ids = []
         for word in words:
