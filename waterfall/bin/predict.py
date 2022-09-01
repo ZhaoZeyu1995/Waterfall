@@ -4,7 +4,7 @@ import torch
 import os
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
-from waterfall.utils.datapipe import Dataset, collate_fn, read_dict
+from waterfall.utils.datapipe_k2 import Dataset, collate_fn, read_dict
 import argparse
 import numpy as np
 import logging

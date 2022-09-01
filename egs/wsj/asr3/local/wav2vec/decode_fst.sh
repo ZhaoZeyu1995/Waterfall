@@ -47,7 +47,7 @@ acwt=$acoustic_scale
 maxac=$max_active
 
 decode_dir=$predict_dir/acwt_${acwt}-maxac_${maxac}-beam_${beam}
-mkdir -p decode_dir
+mkdir -p $decode_dir
 run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode-faster.JOB.log decode-faster --max-active=$maxac --acoustic-scale=$acwt --beam=$beam --word-symbol-table=${lang_dir}/words.txt ${graph} "ark:copy-feats scp:$predict_dir/split$nj/output.JOB.scp  ark:-|" "ark,t:$decode_dir/split$nj/hyp.JOB.wrd"
 
 for i in $(seq $nj); do
