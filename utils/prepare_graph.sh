@@ -18,7 +18,7 @@ tmpdir=$2
 dir=$3
 
 if [ $# -lt 2 ]; then
-    echo 'Usage: prepare_graph.sh [--type ctc|mmictc|2state] <srcdir> <tmpdir> [<desdir>]'
+    echo 'Usage: prepare_graph.sh [--type ctc|mmictc|2state|mmictc_blk|2state_blk] <srcdir> <tmpdir> [<desdir>]'
     echo 'By default, <desdir>=${srcdir}_${type}'
     exit 1
 fi

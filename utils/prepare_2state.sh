@@ -11,7 +11,7 @@
 # lang/k2/tokens.txt # input labels for T.fst -- no <eps>
 # lang/k2/phones.txt # output labels for T.fst -- no <blk> and <eps> is assigned to 0
 
-# usage: prepare_k2.sh data/lang
+# usage: prepare_2state.sh data/lang
 
 lang=$1
 

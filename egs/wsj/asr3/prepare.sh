@@ -16,6 +16,8 @@ wsj0=/group/corporapublic/wsj/wsj0
 wsj1=/group/corporapublic/wsj/wsj1
 corpus=/group/corporapublic/wsj
 
+topos="ctc mmictc 2state 2state_blk mmictc_blk"
+
 
 . utils/parse_options.sh || exit 1;
 
@@ -61,7 +63,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     ### Task dependent. You have to check non-linguistic symbols used in the corpus.
     echo "stage 2: Generating different topologies and token FSTs."
     lm_suffixes="test_bg test_bg_5k test_tg test_tg_5k test_tgpr test_tgpr_5k test_bd_fg test_bd_fgpr test_bd_tg test_bd_tgpr"
-    for topo in ctc mmictc 2state; do
+    for topo in $topos; do
         for suffix in $lm_suffixes; do
             prepare_graph.sh --type $topo data/lang_nosp_${suffix} data/local/lang_nosp_${suffix}_${topo}_tmp
         done
