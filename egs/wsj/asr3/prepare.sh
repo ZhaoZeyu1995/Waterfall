@@ -49,7 +49,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
                         data/lang_nosp_bd
     local/wsj_train_lms.sh --dict-suffix "_nosp"
     local/wsj_format_local_lms.sh --lang-suffix "_nosp"
-    echo "Done exteding the dictionary and formatting LMs."
+    echo "Done extending the dictionary and formatting LMs."
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
@@ -60,7 +60,6 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-    ### Task dependent. You have to check non-linguistic symbols used in the corpus.
     echo "stage 2: Generating different topologies and token FSTs."
     lm_suffixes="test_bg test_bg_5k test_tg test_tg_5k test_tgpr test_tgpr_5k test_bd_fg test_bd_fgpr test_bd_tg test_bd_tgpr"
     for topo in $topos; do
@@ -68,10 +67,4 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
             prepare_graph.sh --type $topo data/lang_nosp_${suffix} data/local/lang_nosp_${suffix}_${topo}_tmp
         done
     done
-fi
-if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-    echo "stage 3: preparing decoding graph"
-    mkgraph.sh $lang_dir $ngram_lm data/local/lang_tmp $decode_langdir || exit 1;
-    mkgraph.sh ${lang_dir}_2state $ngram_lm data/local/lang_2state_tmp ${decode_langdir}_2state || exit 1;
-    mkgraph.sh ${lang_dir}_mmictc $ngram_lm data/local/lang_mmictc_tmp ${decode_langdir}_mmictc || exit 1;
 fi
