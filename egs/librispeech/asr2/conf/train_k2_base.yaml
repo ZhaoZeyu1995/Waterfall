@@ -2,7 +2,7 @@
 loss: k2
 output_beam: 20
 # batch
-batch_size: 10
+batch_size: 8
 # data pipeline
 num_workers: 12
 # multi-gpu training
@@ -26,6 +26,6 @@ max_epochs: 1000
 # fine-tuning
 
 model: WAV2VEC2_BASE
-finetune_layers: 1
+finetune_layers: 2
 same_optimiser_for_finetuning: true
 encoder_output_size: 768

@@ -38,7 +38,7 @@ if [ ! -d $predict_dir/split$nj ]; then
     if [ -f $predict_dir/output.1.scp ]; then
         run.pl JOB=1:$nj $predict_dir/split$nj/log/split_scp.JOB.log utils/split_scp.pl -j $nj JOB --one-based $predict_dir/output.1.scp $predict_dir/split$nj/output.JOB.scp
     else
-        echo "Cannot find output.1.scp or split$nj in $predict_dir!!! There should be one of them at least!" || exit 1
+        echo "Cannot find output.1.scp or split$nj in $predict_dir!!! There should be one of them at least!"
     fi
 fi
 
@@ -47,7 +47,7 @@ acwt=$acoustic_scale
 maxac=$max_active
 
 decode_dir=$predict_dir/acwt_${acwt}-maxac_${maxac}-beam_${beam}
-mkdir -p decode_dir
+mkdir -p $decode_dir
 run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode-faster.JOB.log decode-faster --max-active=$maxac --acoustic-scale=$acwt --beam=$beam --word-symbol-table=${lang_dir}/words.txt ${graph} "ark:copy-feats scp:$predict_dir/split$nj/output.JOB.scp  ark:-|" "ark,t:$decode_dir/split$nj/hyp.JOB.wrd"
 
 for i in $(seq $nj); do

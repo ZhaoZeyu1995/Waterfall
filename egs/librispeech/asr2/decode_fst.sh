@@ -8,10 +8,10 @@
 
 
 nj=10
-max_active="6000"
+max_active="7000"
 acoustic_scale="6"
 beams='16'
-decode_sets="test_dev93 test_eval92"
+decode_sets="dev_clean dev_other test_clean test_other"
 lang_dir=data/lang_tg
 suffix= # can be "" "_soft" or "_hard"
 
