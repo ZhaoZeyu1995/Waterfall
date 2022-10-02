@@ -13,7 +13,7 @@ acoustic_scale="6"
 beams='16'
 decode_sets="dev_clean dev_other test_clean test_other"
 lang_dir=data/lang_tg
-suffix= # can be "" "_soft" or "_hard"
+suffix= 
 
 
 . ./utils/parse_options.sh
@@ -24,7 +24,8 @@ graph=${lang_dir}/TLG.fst
 
 for decode_set in $decode_sets; do
     data_dir=data/$decode_set
-    predict_dir=$exp_dir/decode_${decode_set}${suffix}
+    predict_dir=$exp_dir/decode_${decode_set}_${suffix}
+    cp -r $exp_dir/decode_${decode_set} $predict_dir
     for beam in $beams; do 
         for maxac in $max_active; do 
             for acwt in $acoustic_scale; do
