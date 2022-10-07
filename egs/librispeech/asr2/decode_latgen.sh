@@ -14,6 +14,7 @@ beams='16'
 latbeam="10"
 decode_sets="dev_clean dev_other test_clean test_other"
 lang_dir=data/lang_tg
+threads="1"
 suffix= 
 
 
@@ -33,7 +34,7 @@ for decode_set in $decode_sets; do
     for beam in $beams; do 
         for maxac in $max_active; do 
             for acwt in $acoustic_scale; do
-                func/decode_fst.sh --nj $nj --max_active $maxac --acoustic_scale $acwt --beam $beam --latbeam $latbeam $data_dir $lang_dir $predict_dir
+                func/decode_fst.sh --nj $nj --threads $threads --max_active $maxac --acoustic_scale $acwt --beam $beam --latbeam $latbeam $data_dir $lang_dir $predict_dir
             done
         done
     done
