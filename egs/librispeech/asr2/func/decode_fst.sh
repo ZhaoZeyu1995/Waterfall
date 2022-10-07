@@ -50,7 +50,7 @@ maxac=$max_active
 
 decode_dir=$predict_dir/acwt_${acwt}-maxac_${maxac}-beam_${beam}
 mkdir -p $decode_dir
-run.pl JOB=1:$nj $decode_dir/split${nj}/log/latgen-faster-mapped-parallel.JOB.log latgen-faster-mapped-parallel --num-threads $threads --max-active=$maxac --beam=$beam --lattice-beam=$latbeam --acoustic-scale=$acwt --word-symbol-table=$lang_dir/words.txt $lang_dir/FakeTransitionModel $graph "ark:copy-feats scp:$predict_dir/split$nj/output.JOB.scp  ark:-|" "ark:|gzip -c > $decode_dir/split$nj/lat.JOB.gz" "ark,t:$decode_dir/split$nj/hyp.JOB.wrd"
+run.pl JOB=1:$nj $decode_dir/split${nj}/log/latgen-faster-mapped-parallel.JOB.log latgen-faster-mapped-parallel --num-threads=$threads --max-active=$maxac --beam=$beam --lattice-beam=$latbeam --acoustic-scale=$acwt --word-symbol-table=$lang_dir/words.txt $lang_dir/FakeTransitionModel $graph "ark:copy-feats scp:$predict_dir/split$nj/output.JOB.scp  ark:-|" "ark:|gzip -c > $decode_dir/split$nj/lat.JOB.gz" "ark,t:$decode_dir/split$nj/hyp.JOB.wrd"
 
 for i in $(seq $nj); do
     utils/int2sym.pl -f 2- $lang_dir/words.txt $decode_dir/split$nj/hyp.$i.wrd | cat || exit 1

@@ -77,6 +77,7 @@ def main(args):
                                                         patience=cfg['patience_eta'],
                                                         verbose=True))
 
+    accumulate_grad_batches = 1 if 'accumulate_grad_batches' not in cfg.keys() else cfg['accumulate_grad_batches']
     if args.checkpoint:
         if not args.load_weights_only:
             trainer = pl.Trainer(gpus=args.gpus,
@@ -86,6 +87,7 @@ def main(args):
                                  max_epochs=cfg['max_epochs'],
                                  logger=pl.loggers.TensorBoardLogger(
                                      'exp', name=args.name),
+                                 accumulate_grad_batches=accumulate_grad_batches,
                                  callbacks=callbacks)
         else:
             model.load_state_dict(torch.load(args.checkpoint)['state_dict'])
@@ -95,6 +97,7 @@ def main(args):
                                  max_epochs=cfg['max_epochs'],
                                  logger=pl.loggers.TensorBoardLogger(
                                      'exp', name=args.name),
+                                 accumulate_grad_batches=accumulate_grad_batches,
                                  callbacks=callbacks)
     else:
         trainer = pl.Trainer(gpus=args.gpus,
@@ -103,6 +106,7 @@ def main(args):
                              max_epochs=cfg['max_epochs'],
                              logger=pl.loggers.TensorBoardLogger(
                                  'exp', name=args.name),
+                             accumulate_grad_batches=accumulate_grad_batches,
                              callbacks=callbacks)
 
     trainer.fit(model, train_gen, dev_gen)
