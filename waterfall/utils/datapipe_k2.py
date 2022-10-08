@@ -191,7 +191,7 @@ def collate_fn(list_of_samples):
         samples_collated['wavs'] = torch.nn.utils.rnn.pad_sequence(
             batch_wav, batch_first=True)
         samples_collated['lengths'] = torch.tensor(
-            batch_lengths, dtype=torch.long),
+            batch_lengths, dtype=torch.long)
 
     if 'feats' in list_of_samples[0].keys():
         batch_feats = [sample['feats'] for sample in list_of_samples]
@@ -199,9 +199,9 @@ def collate_fn(list_of_samples):
         samples_collated['feats'] = torch.nn.utils.rnn.pad_sequence(
             batch_feats, batch_first=True)
         samples_collated['feats_lens'] = torch.tensor(
-            batch_feats_lens, dtype=torch.long),
+            batch_feats_lens, dtype=torch.long)
 
-    return
+    return samples_collated
 
 
 def collate_fn_sorted(list_of_samples):

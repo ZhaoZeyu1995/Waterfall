@@ -8,7 +8,7 @@ from waterfall.utils.datapipe_k2 import Dataset, collate_fn, read_dict
 import argparse
 import numpy as np
 import logging
-from waterfall import models
+from waterfall import conformer
 from kaldiio import WriteHelper
 import time
 
@@ -29,7 +29,7 @@ def predict(data_dir,
     batch_size, int
     '''
 
-    model = models.Wav2VecFineTuningDiverse.load_from_checkpoint(model_dir)
+    model = conformer.ConformerModel.load_from_checkpoint(model_dir)
 
     trainer = pl.Trainer(gpus=gpus, logger=None)
 
@@ -42,7 +42,7 @@ def predict(data_dir,
             f.write(os.path.join(os.getcwd(), model_dir))
 
     tic = time.time()
-    data_gen = DataLoader(Dataset(data_dir, lang_dir),
+    data_gen = DataLoader(Dataset(data_dir, lang_dir, load_wav=False, load_feats=True),
                           batch_size=batch_size,
                           collate_fn=collate_fn,
                           num_workers=4)
@@ -56,13 +56,13 @@ def predict(data_dir,
         with WriteHelper('ark,scp:%s,%s' % (os.path.join(os.getcwd(), output_dir, 'output.%d.ark' % (jid)), os.path.join(os.getcwd(), output_dir, 'output.%d.scp' % (jid)))) as writer:
             for item in results:
                 log_probs = item[0]
-                log_probs = log_probs.cpu().detach().numpy()
+                probs = log_probs.cpu().detach().numpy()
                 xlens = item[1]
                 names = item[2]
                 spks = item[3]
                 texts = item[4]
-                for i in range(log_probs.shape[0]):
-                    single_probs = log_probs[i, :xlens[i], :]
+                for i in range(probs.shape[0]):
+                    single_probs = probs[i, :xlens[i], :]
                     writer(names[i], single_probs)
 
                     yc += '%s (%s-%s)\n' % (texts[i],

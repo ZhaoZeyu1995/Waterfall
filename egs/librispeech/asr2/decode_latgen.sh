@@ -30,11 +30,14 @@ func/generate_transition_model.sh $lang_dir
 for decode_set in $decode_sets; do
     data_dir=data/$decode_set
     predict_dir=$exp_dir/decode_${decode_set}_latgen_${suffix}
-    cp -r $exp_dir/decode_${decode_set} $predict_dir
+    if [ -d $predict_dir ]; then
+        mv $predict_dir ${predict_dir}_bak
+    fi
+    cp -r $exp_dir/predict_${decode_set} $predict_dir
     for beam in $beams; do 
         for maxac in $max_active; do 
             for acwt in $acoustic_scale; do
-                func/decode_fst.sh --nj $nj --threads $threads --max_active $maxac --acoustic_scale $acwt --beam $beam --latbeam $latbeam $data_dir $lang_dir $predict_dir
+                func/decode_latgen.sh --nj $nj --threads $threads --max_active $maxac --acoustic_scale $acwt --beam $beam --latbeam $latbeam $data_dir $lang_dir $predict_dir
             done
         done
     done

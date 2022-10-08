@@ -28,5 +28,5 @@ output_dir=$4
 
 mkdir -p $output_dir
 
-predict.py --data_dir $data_dir --lang_dir $lang_dir --model_dir $model_dir --output_dir $output_dir --jid 1 --gpus $gpus --batch_size $batch_size > $output_dir/predict_gpu.log 2>&1 
+predict_conformer.py --data_dir $data_dir --lang_dir $lang_dir --model_dir $model_dir --output_dir $output_dir --jid 1 --gpus $gpus --batch_size $batch_size > $output_dir/predict_gpu.log 2>&1 
 

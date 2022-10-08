@@ -27,7 +27,6 @@ max_epochs: 1000
 
 accumulate_grad_batches: 8
 idim: 83
-accum-grad: 4
 adim: 512
 aheads: 8
 dlayers: 6
