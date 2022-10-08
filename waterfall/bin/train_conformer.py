@@ -11,7 +11,7 @@ import yaml
 import random
 import numpy as np
 import logging
-from waterfall import models
+from waterfall import conformer
 from waterfall.utils import datapipe, datapipe_manual_ctc, datapipe_k2
 from waterfall.manual_ctc import eta_scheduler
 
@@ -32,9 +32,9 @@ def main(args):
 
     if cfg['loss'] in ['ctc_k2', 'k2']:
         train_data = Dataset(args.train_set,
-                             args.lang_dir, token_type='phones')
+                             args.lang_dir, token_type='phones', load_wav=False, load_feats=True)
         dev_data = Dataset(args.dev_set,
-                           args.lang_dir, token_type='phones')
+                           args.lang_dir, token_type='phones', load_wav=False, load_feats=True)
     else:
         train_data = Dataset(args.train_set,
                              args.lang_dir)
@@ -54,8 +54,8 @@ def main(args):
                          persistent_workers=True,
                          collate_fn=collate_fn)
 
-    model = models.Wav2VecFineTuningDiverse(
-        train_data.lang.num_nn_output, cfg=cfg, lang_dir=args.lang_dir)
+    model = conformer.ConformerModel(
+        cfg['idim'], train_data.lang.num_nn_output, cfg=cfg, lang_dir=args.lang_dir)
 
     callbacks = [pl.callbacks.ModelCheckpoint(monitor='valid_loss',
                                               save_top_k=5 if 'save_top_k' not in cfg.keys(
@@ -77,8 +77,8 @@ def main(args):
                                                         patience=cfg['patience_eta'],
                                                         verbose=True))
 
-    accumulate_grad_batches = 1 if 'accumulate_grad_batches' not in cfg.keys() else cfg['accumulate_grad_batches']
-    print('accumulate_grad_batches: ', accumulate_grad_batches)
+    accumulate_grad_batches = 1 if 'accumulate_grad_batches' not in cfg.keys(
+    ) else cfg['accumulate_grad_batches']
     if args.checkpoint:
         if not args.load_weights_only:
             trainer = pl.Trainer(gpus=args.gpus,
@@ -89,6 +89,8 @@ def main(args):
                                  logger=pl.loggers.TensorBoardLogger(
                                      'exp', name=args.name),
                                  accumulate_grad_batches=accumulate_grad_batches,
+                                 gradient_clip_val=cfg['grad-clip'],
+                                 gradient_clip_algorithm='value',
                                  callbacks=callbacks)
         else:
             model.load_state_dict(torch.load(args.checkpoint)['state_dict'])
@@ -99,6 +101,8 @@ def main(args):
                                  logger=pl.loggers.TensorBoardLogger(
                                      'exp', name=args.name),
                                  accumulate_grad_batches=accumulate_grad_batches,
+                                 gradient_clip_val=cfg['grad-clip'],
+                                 gradient_clip_algorithm='value',
                                  callbacks=callbacks)
     else:
         trainer = pl.Trainer(gpus=args.gpus,
@@ -108,6 +112,8 @@ def main(args):
                              logger=pl.loggers.TensorBoardLogger(
                                  'exp', name=args.name),
                              accumulate_grad_batches=accumulate_grad_batches,
+                             gradient_clip_val=cfg['grad-clip'],
+                             gradient_clip_algorithm='value',
                              callbacks=callbacks)
 
     trainer.fit(model, train_gen, dev_gen)

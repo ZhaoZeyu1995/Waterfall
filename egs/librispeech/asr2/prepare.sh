@@ -9,7 +9,9 @@
 # general configuration
 stage=0        # start from 0 if you need to start from data preparation
 stop_stage=100
-nj=4
+nj=10
+
+do_delta=false
 
 topos="ctc mmictc 2state 2state_blk mmictc_blk"
 lm_suffixes="test_tgsmall test_tgmed test_tglarge test_fglarge"
@@ -78,8 +80,38 @@ if [ $stage -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     utils/combine_data.sh data/dev data/dev_other/ data/dev_clean
 fi
 
+feat_tr_dir=data/${train_set}/dump/delta${do_delta}; mkdir -p ${feat_tr_dir}
+feat_dt_dir=data/${train_dev}/dump/delta${do_delta}; mkdir -p ${feat_dt_dir}
+fbankdir=fbank
 
-if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+if [ $stage -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+    echo "stage 3: compute features "
+    # The feature extraction can be skipped if we only train wav2vec 2.0 model
+    for x in train_clean_100 train_clean_360 train_other_500 dev_clean dev_other test_clean test_other; do
+        steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
+            data/${x} exp/make_fbank/${x} ${fbankdir}
+        utils/fix_data_dir.sh data/${x}
+    done
+
+    utils/combine_data.sh data/train_960 data/train_clean_100 data/train_clean_360 data/train_other_500
+    utils/combine_data.sh data/dev data/dev_other/ data/dev_clean
+
+    compute-cmvn-stats scp:data/$train_set/feats.scp data/${train_set}/cmvn.ark
+
+    dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
+        data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
+    dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
+        data/${train_dev}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/dev ${feat_dt_dir}
+    for rtask in ${recog_set}; do
+        feat_recog_dir=data/${rtask}/dump/delta${do_delta}; mkdir -p ${feat_recog_dir}
+        dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
+            data/${rtask}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/recog/${rtask} \
+            ${feat_recog_dir}
+    done
+fi
+
+
+if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     echo "stage 3: Generating different topologies and token FSTs."
     for topo in $topos; do
         for suffix in $lm_suffixes; do

@@ -326,6 +326,57 @@ class Wav2VecFineTuningDiverse(pl.LightningModule):
         x = F.log_softmax(x, dim=-1)
         return x, xlens
 
+    def debugging(self):
+        norm_sum_4 = 0.
+        norm_sum_3 = 0.
+        norm_sum_2 = 0.
+        norm_sum_1 = 0.
+        norm_sum_lin = 0.
+        for para in self.wav2vec.encoder.transformer.layers[-4].parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+            # print('para.grad.max()', para.grad.max())
+            # print('para.grad.min()', para.grad.min())
+                norm_sum_4 += torch.norm(para.grad).item()
+        for para in self.wav2vec.encoder.transformer.layers[-3].parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+            # print('para.grad.max()', para.grad.max())
+            # print('para.grad.min()', para.grad.min())
+                norm_sum_3 += torch.norm(para.grad).item()
+        for para in self.wav2vec.encoder.transformer.layers[-2].parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+            # print('para.grad.max()', para.grad.max())
+            # print('para.grad.min()', para.grad.min())
+                norm_sum_2 += torch.norm(para.grad).item()
+        for para in self.wav2vec.encoder.transformer.layers[-1].parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+            # print('para.grad.max()', para.grad.max())
+            # print('para.grad.min()', para.grad.min())
+                norm_sum_1 += torch.norm(para.grad).item()
+        for para in self.output_layer.parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+            # print('para.grad.max()', para.grad.max())
+            # print('para.grad.min()', para.grad.min())
+                norm_sum_lin += torch.norm(para.grad).item()
+        print('norm_sum_4', norm_sum_4)
+        print('norm_sum_3', norm_sum_3)
+        print('norm_sum_2', norm_sum_2)
+        print('norm_sum_1', norm_sum_1)
+        print('norm_sum_lin', norm_sum_lin)
+
+            # print('torch.max(para.grad)', torch.max(para.grad))
+            # print('torch.min(para.grad)', torch.min(para.grad))
+
+
     def training_step(self, batch, batch_idx, optimizer_idx=None):
         loss = self.division(batch, batch_idx, optimizer_idx)
         self.log('loss', loss, on_epoch=True, sync_dist=True)
