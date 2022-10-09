@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from espnet.transform.spec_augment import spec_augment
 
 class SpecAugment(object):
@@ -21,7 +22,7 @@ class SpecAugment(object):
         self.__replace_with_zero = replace_with_zero
 
     def __call__(self, sample):
-        feat = sample['feat']
+        feat = np.array(sample['feats'])
         feat = spec_augment(feat,
                             resize_mode=self.__resize_mode,
                             max_time_warp=self.__max_time_warp,
@@ -31,5 +32,5 @@ class SpecAugment(object):
                             n_time_mask=self.__n_time_mask,
                             inplace=self.__inplace,
                             replace_with_zero=self.__replace_with_zero)
-        sample['feat'] = torch.from_numpy(feat)
+        sample['feats'] = torch.from_numpy(feat)
         return sample

@@ -14,11 +14,24 @@ import logging
 from waterfall import conformer
 from waterfall.utils import datapipe, datapipe_manual_ctc, datapipe_k2
 from waterfall.manual_ctc import eta_scheduler
+from waterfall.utils.specaug import SpecAugment
 
 
 def main(args):
     cfg = yaml.load(open(args.config), Loader=yaml.loader.SafeLoader)
     pl.seed_everything(cfg['seed'], workers=True)
+
+    if cfg['spec_aug']:
+        spec_aug = SpecAugment(resize_mode=cfg['mode'],
+                               max_time_warp=cfg['max_time_warp'],
+                               max_freq_width=cfg['max_freq_width'],
+                               n_freq_mask=cfg['n_freq_mask'],
+                               max_time_width=cfg['max_time_width'],
+                               n_time_mask=cfg['n_time_mask'],
+                               inplace=cfg['inplace'],
+                               replace_with_zero=cfg['replace_with_zero'])
+    else:
+        spec_aug=None
 
     if cfg['loss'] == 'ctc':
         Dataset = datapipe.Dataset
@@ -32,7 +45,7 @@ def main(args):
 
     if cfg['loss'] in ['ctc_k2', 'k2']:
         train_data = Dataset(args.train_set,
-                             args.lang_dir, token_type='phones', load_wav=False, load_feats=True)
+                             args.lang_dir, token_type='phones', load_wav=False, load_feats=True, transforms=spec_aug)
         dev_data = Dataset(args.dev_set,
                            args.lang_dir, token_type='phones', load_wav=False, load_feats=True)
     else:

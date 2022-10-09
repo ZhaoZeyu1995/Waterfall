@@ -197,7 +197,7 @@ class ConformerModel(pl.LightningModule):
         # )
 
         optimiser= torch.optim.Adam(self.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
-        return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=2, verbose=True),
+        return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=2, verbose=True, min_lr=1e-8),
                               'monitor': 'valid_loss'}]
 
     def optimizer_step(self,
@@ -211,17 +211,21 @@ class ConformerModel(pl.LightningModule):
                        using_lbfgs=False):
         optimizer.step(closure=optimizer_closure)
 
-        lr = (
-            self.cfg['transformer-lr']
-            * self.cfg['adim'] ** (-0.5)
-            * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
-        )
-
+        for pg in optimizer.param_groups:
+            lr = pg["lr"]
+            break
         self.log('lr', lr, sync_dist=True)
 
-        # skip the first 500 steps
-        for pg in optimizer.param_groups:
-            pg["lr"] = lr
+        if self.trainer.global_step <= self.cfg['transformer-warmup-steps']:
+            lr = (
+                self.cfg['transformer-lr']
+                * self.cfg['adim'] ** (-0.5)
+                * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
+            )
+
+
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr
 
 
 def get_model(input_dim, output_dim):

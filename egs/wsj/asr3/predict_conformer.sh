@@ -19,7 +19,7 @@ exp_dir=$(dirname $(dirname $model_dir)) # this is specific for our exp dir stru
 
 for decode_set in $decode_sets; do
     data_dir=data/$decode_set
-    output_dir=$exp_dir/decode_${decode_set}
+    output_dir=$exp_dir/predict_${decode_set}
     mkdir -p $output_dir
-    func/predict_gpu.sh --gpus $gpus --batch_size $batch_size $data_dir $lang_dir $model_dir $output_dir
+    func/predict_gpu_conformer.sh --gpus $gpus --batch_size $batch_size $data_dir $lang_dir $model_dir $output_dir
 done

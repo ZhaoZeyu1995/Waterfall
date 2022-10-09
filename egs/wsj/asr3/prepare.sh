@@ -9,7 +9,8 @@
 # general configuration
 stage=0        # start from 0 if you need to start from data preparation
 stop_stage=100
-nj=4
+nj=10
+do_delta=false
 
 # data
 wsj0=/group/corporapublic/wsj/wsj0
@@ -27,7 +28,8 @@ set -e
 set -u
 set -o pipefail
 
-train_set=train_si284
+base_train_set=train_si284
+train_set=train_si284_sp
 train_dev=test_dev93
 train_test=test_eval92
 recog_set="test_dev93 test_eval92"
@@ -54,13 +56,41 @@ fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     echo "stage 1: speed perturbation and combine data"
-    local/wav2vec/perturb_data_dir_speed.sh 0.9 data/$train_set data/${train_set}_0.9 || exit 1;
-    local/wav2vec/perturb_data_dir_speed.sh 1.1 data/$train_set data/${train_set}_1.1 || exit 1;
-    utils/combine_data.sh  data/${train_set}_sp data/${train_set} data/${train_set}_0.9 data/${train_set}_1.1 || exit 1;
+    local/wav2vec/perturb_data_dir_speed.sh 0.9 data/${base_train_set} data/${base_train_set}_0.9 || exit 1;
+    local/wav2vec/perturb_data_dir_speed.sh 1.1 data/$base_train_set data/${base_train_set}_1.1 || exit 1;
+    utils/combine_data.sh  data/${train_set} data/${base_train_set} data/${base_train_set}_0.9 data/${base_train_set}_1.1 || exit 1;
 fi
 
+feat_tr_dir=data/${train_set}/dump/delta${do_delta}; mkdir -p ${feat_tr_dir}
+feat_dt_dir=data/${train_dev}/dump/delta${do_delta}; mkdir -p ${feat_dt_dir}
+fbankdir=fbank
+
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-    echo "stage 2: Generating different topologies and token FSTs."
+    echo "stage 2: feature extraction and dump"
+    for x in train_si284 train_si284_0.9 train_si284_1.1 test_dev93 test_eval92; do
+        steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
+            data/${x} exp/make_fbank/${x} ${fbankdir}
+        utils/fix_data_dir.sh data/${x}
+    done
+
+    utils/combine_data.sh  data/${train_set} data/${base_train_set} data/${base_train_set}_0.9 data/${base_train_set}_1.1 || exit 1;
+
+    compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
+
+    dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
+        data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
+    dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
+        data/${train_dev}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/dev ${feat_dt_dir}
+    for rtask in ${recog_set}; do
+        feat_recog_dir=data/${rtask}/dump/delta${do_delta}; mkdir -p ${feat_recog_dir}
+        dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
+            data/${rtask}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/recog/${rtask} \
+            ${feat_recog_dir}
+    done
+fi
+
+if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+    echo "stage 3: Generating different topologies and token FSTs."
     lm_suffixes="test_bg test_bg_5k test_tg test_tg_5k test_tgpr test_tgpr_5k test_bd_fg test_bd_fgpr test_bd_tg test_bd_tgpr"
     for topo in $topos; do
         for suffix in $lm_suffixes; do
