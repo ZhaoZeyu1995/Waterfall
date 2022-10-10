@@ -38,7 +38,6 @@ def main(args):
             else:
                 word_sequence =  result_in_txt
             logging.info('%s %s' % (utt, word_sequence))
-            break
     output_f.write(output_f_c)
     output_f.close()
 
