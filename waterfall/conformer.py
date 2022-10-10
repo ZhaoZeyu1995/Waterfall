@@ -140,6 +140,14 @@ class Encoder(torch.nn.Module):
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
             self.conv_subsampling_factor = 2
+        elif input_layer == "conv2d3":
+            self.embed = Conv2dSubsampling3(
+                idim,
+                attention_dim,
+                dropout_rate,
+                pos_enc_class(attention_dim, positional_dropout_rate),
+            )
+            self.conv_subsampling_factor = 3
         elif input_layer == "vgg2l":
             self.embed = VGG2L(idim, attention_dim)
             self.conv_subsampling_factor = 4
@@ -254,7 +262,7 @@ class Encoder(torch.nn.Module):
             torch.Tensor: Mask tensor (#batch, time).
 
         """
-        if isinstance(self.embed, (Conv2dSubsampling, VGG2L, Conv2dSubsampling2)):
+        if isinstance(self.embed, (Conv2dSubsampling, VGG2L, Conv2dSubsampling2,  Conv2dSubsampling3)):
             xs, masks = self.embed(xs, masks)
         else:
             xs = self.embed(xs)
@@ -561,7 +569,63 @@ class ConformerModel(pl.LightningModule):
 
             for pg in optimizer.param_groups:
                 pg["lr"] = lr
+class Conv2dSubsampling3(nn.Module):
+    """Convolutional 2D subsampling (to 1/3 length).
 
+    Args:
+        idim (int): Input dimension.
+        odim (int): Output dimension.
+        dropout_rate (float): Dropout rate.
+        pos_enc (torch.nn.Module): Custom position encoding layer.
+
+    """
+
+    def __init__(self, idim, odim, dropout_rate, pos_enc=None):
+        """Construct an Conv2dSubsampling3 object."""
+        super(Conv2dSubsampling3, self).__init__()
+        self.conv = torch.nn.Sequential(
+            torch.nn.Conv2d(1, odim, 3, 3),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(odim, odim, 3, 1),
+            torch.nn.ReLU(),
+        )
+        self.out = torch.nn.Sequential(
+            torch.nn.Linear(odim * (((idim - 2 - 1) // 3) + 1 - 2), odim),
+            pos_enc if pos_enc is not None else PositionalEncoding(odim, dropout_rate),
+        )
+
+    def forward(self, x, x_mask):
+        """Subsample x.
+
+        Args:
+            x (torch.Tensor): Input tensor (#batch, time, idim).
+            x_mask (torch.Tensor): Input mask (#batch, 1, time).
+
+        Returns:
+            torch.Tensor: Subsampled tensor (#batch, time', odim),
+                where time' = time // 2.
+            torch.Tensor: Subsampled mask (#batch, 1, time'),
+                where time' = time // 2.
+
+        """
+        x = x.unsqueeze(1)  # (b, c, t, f)
+        x = self.conv(x)
+        b, c, t, f = x.size()
+        x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
+        if x_mask is None:
+            return x, None
+        return x, x_mask[:, :, :-7:3]
+
+    def __getitem__(self, key):
+        """Get item.
+
+        When reset_parameters() is called, if use_scaled_pos_enc is used,
+            return the positioning encoding.
+
+        """
+        if key != -1:
+            raise NotImplementedError("Support only `-1` (for `reset_parameters`).")
+        return self.out[key]
 
 def get_model(input_dim, output_dim):
     model = ConformerModel(input_dim, output_dim)
