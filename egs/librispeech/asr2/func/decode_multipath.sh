@@ -48,7 +48,7 @@ maxac=$max_active
 
 decode_dir=$predict_dir/acwt_${acwt}-maxac_${maxac}-beam_${beam}
 mkdir -p $decode_dir
-run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_viterbi.JOB.log func/decode_multipath.py --max_active $maxac --acoustic_scale $acwt --beam $beam --word_symbol_table ${lang_dir}/words.txt ${graph} $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd
+run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_multipath.JOB.log func/decode_multipath.py --max_active $maxac --acoustic_scale $acwt --beam $beam --word_symbol_table ${lang_dir}/words.txt ${graph} $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd
 
 for i in $(seq $nj); do
     utils/int2sym.pl -f 2- $lang_dir/words.txt $decode_dir/split$nj/hyp.$i.wrd | cat || exit 1
