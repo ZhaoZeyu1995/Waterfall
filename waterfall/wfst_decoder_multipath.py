@@ -447,7 +447,7 @@ class WFSTDecoder:
                 adaptive_beam = self.beam
                 return beam_cutoff, adaptive_beam, best_token, tok_count
 
-    def get_best_prefix(self):
+    def get_best_path(self):
         """get decoding result in best completed prefix
 
         Returns:
