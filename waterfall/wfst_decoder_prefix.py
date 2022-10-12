@@ -120,13 +120,13 @@ class WFSTDecoder:
             self.cur_toks = {}
             # print('process_emitting...')
             cutoff = self.process_emitting()
-            msg = 'At frame %d, after processing_emitting # prefixes %d, # (prefix, state) %d' % (
-            self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
-            logging.info(msg)
+            # msg = 'At frame %d, after processing_emitting # prefixes %d, # (prefix, state) %d' % (
+            # self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
+            # logging.info(msg)
             self.merge_and_prune()
-            msg = 'At frame %d, after merging and pruning # prefixes %d, # (prefix, state) %d' % (
-            self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
-            logging.info(msg)
+            # msg = 'At frame %d, after merging and pruning # prefixes %d, # (prefix, state) %d' % (
+            # self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
+            # logging.info(msg)
             # print('Number of prefix after emitting %d' % (len(self.cur_toks)))
             # print('Number of token after emitting %d' % (len(self.get_cur_tokens())))
             # self.report_cur_toks()
@@ -135,13 +135,13 @@ class WFSTDecoder:
             # self.num_frames_decoded, len(self.get_cur_prefixes()))
             # logging.info(msg)
             self.process_nonemitting(cutoff)
-            msg = 'At frame %d, after processing_nonemitting # prefixes %d, # (prefix, state) %d' % (
-            self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
-            logging.info(msg)
+            # msg = 'At frame %d, after processing_nonemitting # prefixes %d, # (prefix, state) %d' % (
+            # self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
+            # logging.info(msg)
             self.merge_and_prune()
-            msg = 'At frame %d, after merging and pruning # prefixes %d, # (prefix, state) %d' % (
-            self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
-            logging.info(msg)
+            # msg = 'At frame %d, after merging and pruning # prefixes %d, # (prefix, state) %d' % (
+            # self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
+            # logging.info(msg)
 
             # print('Number of prefix after nonemitting %d' % (len(self.cur_toks)))
             # print('Number of token after nonemitting %d' % (len(self.get_cur_tokens())))
@@ -488,7 +488,7 @@ class WFSTDecoder:
         # print('is_final or not', is_final)
         # print('Finished checking ')
         if self.allow_partial:
-            logging.info('Allow partial!')
+            # logging.info('Allow partial!')
             if not is_final:
                 logging.warn('Not reached the final states!')
             prefix2cost = self.extract_prefix_all()
