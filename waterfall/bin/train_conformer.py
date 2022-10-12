@@ -103,7 +103,7 @@ def main(args):
                                      'exp', name=args.name),
                                  accumulate_grad_batches=accumulate_grad_batches,
                                  gradient_clip_val=cfg['grad-clip'],
-                                 gradient_clip_algorithm='value',
+                                 gradient_clip_algorithm='norm',
                                  callbacks=callbacks)
         else:
             model.load_state_dict(torch.load(args.checkpoint)['state_dict'])
@@ -115,7 +115,7 @@ def main(args):
                                      'exp', name=args.name),
                                  accumulate_grad_batches=accumulate_grad_batches,
                                  gradient_clip_val=cfg['grad-clip'],
-                                 gradient_clip_algorithm='value',
+                                 gradient_clip_algorithm='norm',
                                  callbacks=callbacks)
     else:
         trainer = pl.Trainer(gpus=args.gpus,
@@ -126,7 +126,7 @@ def main(args):
                                  'exp', name=args.name),
                              accumulate_grad_batches=accumulate_grad_batches,
                              gradient_clip_val=cfg['grad-clip'],
-                             gradient_clip_algorithm='value',
+                             gradient_clip_algorithm='norm',
                              callbacks=callbacks)
 
     trainer.fit(model, train_gen, dev_gen)
