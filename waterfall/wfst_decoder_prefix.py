@@ -487,24 +487,25 @@ class WFSTDecoder:
         is_final = self.reached_final()
         # print('is_final or not', is_final)
         # print('Finished checking ')
-        if self.allow_partial:
+
+        if not is_final:
+            logging.warn('Not reached the final states!')
+            if self.allow_partial:
             # logging.info('Allow partial!')
-            if not is_final:
-                logging.warn('Not reached the final states!')
-            prefix2cost = self.extract_prefix_all()
-            best_cost = float('inf')
-            best_prefix = None
-            for prefix, cost in prefix2cost.items():
-                if (cost < best_cost):
-                    best_cost = cost
-                    best_prefix = prefix
-            return best_prefix
+                prefix2cost = self.extract_prefix_all()
+                best_cost = float('inf')
+                best_prefix = None
+                for prefix, cost in prefix2cost.items():
+                    if (cost < best_cost):
+                        best_cost = cost
+                        best_prefix = prefix
+                return best_prefix
+            else:
+                return None
         else:
-            if not is_final:
-                logging.warn('Not reached the final states!')
             prefix2cost = self.extract_prefix_final_only()
             best_cost = float('inf')
-            best_token = None
+            best_prefix = None
             # print('Iterating over self.cur_toks.items(), ', len(self.cur_toks))
             for prefix, cost in prefix2cost.items():
                 if (cost < best_cost):
