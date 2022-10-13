@@ -74,6 +74,7 @@ if __name__ == "__main__":
         '--beam_delta', help='The delta_beam for adjusting the pruning cutoff, default 0.5', type=float, default=0.5)
     parser.add_argument('--word_symbol_table',
                         help='The path of the word symbol table, by which the output label ids can be translated into words', type=str, default=None)
+    parser.add_argument('--allow_partial', help='Whether or not to allow partial paths, this is important when no path ends at a final state, default False', type=bool, default=False)
 
     args = parser.parse_args()
 
