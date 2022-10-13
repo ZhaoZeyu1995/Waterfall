@@ -501,7 +501,7 @@ class WFSTDecoder:
                         best_prefix = prefix
                 return best_prefix
             else:
-                return None
+                return []
         else:
             prefix2cost = self.extract_prefix_final_only()
             best_cost = float('inf')
