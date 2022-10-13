@@ -618,15 +618,15 @@ class ConformerModel(pl.LightningModule):
             break
         self.log('lr', lr, sync_dist=True)
 
-        if self.trainer.global_step <= self.cfg['transformer-warmup-steps']:
-            lr = (
-                self.cfg['transformer-lr']
-                * self.cfg['adim'] ** (-0.5)
-                * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
-            )
+        # if (self.trainer.global_step + 1) <= self.cfg['transformer-warmup-steps']:
+        lr = (
+            self.cfg['transformer-lr']
+            * self.cfg['adim'] ** (-0.5)
+            * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
+        )
 
-            for pg in optimizer.param_groups:
-                pg["lr"] = lr
+        for pg in optimizer.param_groups:
+            pg["lr"] = lr
 
 def get_model(input_dim, output_dim):
     model = ConformerModel(input_dim, output_dim)
