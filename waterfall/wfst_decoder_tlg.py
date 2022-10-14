@@ -123,12 +123,12 @@ class WFSTDecoder:
             self.cur_toks = {}
             # print('process_emitting...')
             weight_cutoff = self.process_emitting()
-            logging.info('After emitting For frame %d, there are %d tokens' %
-            (self.num_frames_decoded, len(self.cur_toks)))  # This is for debugging only
+            # logging.info('After emitting For frame %d, there are %d tokens' %
+            # (self.num_frames_decoded, len(self.cur_toks)))  # This is for debugging only
             # print('process_nonemitting...')
             self.process_nonemitting(weight_cutoff)
-            logging.info('After nonemitting For frame %d, there are %d tokens' %
-            (self.num_frames_decoded, len(self.cur_toks)))  # This is for debugging only
+            # logging.info('After nonemitting For frame %d, there are %d tokens' %
+            # (self.num_frames_decoded, len(self.cur_toks)))  # This is for debugging only
 
     def init_decoding(self):
         """Init decoding states for every input utterance
@@ -143,22 +143,10 @@ class WFSTDecoder:
         dummy_arc = LatticeArc(0, 0, 0.0, start_state_lg)
         self.cur_toks[(start_state_t, start_state_lg)
                       ] = Token(dummy_arc, 0.0, None)
-        print('Before processing_nonemitting...')
-        for state, tok in self.cur_toks.items():
-            print('state', state)
-            print('tok.arc.ilabel', tok.arc.ilabel)
-            print('tok.arc.olabel', tok.arc.olabel)
-            print('tok.cost', tok.cost)
-            print('tok.prev_tok', tok.prev_tok)
+
         self.num_frames_decoded = 0
         self.process_nonemitting(float('inf'))
-        print('After processing_nonemitting...')
-        for state, tok in self.cur_toks.items():
-            print('state', state)
-            print('tok.arc.ilabel', tok.arc.ilabel)
-            print('tok.arc.olabel', tok.arc.olabel)
-            print('tok.cost', tok.cost)
-            print('tok.prev_tok', tok.prev_tok)
+
 
     def reached_final(self):
         '''
@@ -212,7 +200,7 @@ class WFSTDecoder:
 
         # print('Begin to iterate through self.prev_toks.items() %d' % (len(self.prev_toks)))
 
-        print('Frame', self.num_frames_decoded)
+        # print('Frame', self.num_frames_decoded)
         # for state, tok in self.prev_toks.items():
             # print('state', state)
             # print('tok.arc.ilabel', tok.arc.ilabel)
@@ -220,9 +208,9 @@ class WFSTDecoder:
             # print('tok.cost', tok.cost)
             # print('tok.prev_tok', tok.prev_tok)
 
-        print('adaptive_beam', adaptive_beam)
+        # print('adaptive_beam', adaptive_beam)
         for (state_t, state_lg), tok in self.prev_toks.items():
-            print('next_weight_cutoff', next_weight_cutoff)
+            # print('next_weight_cutoff', next_weight_cutoff)
             if tok.cost < weight_cutoff:
                 for arc_t in self.t_fst.arcs(state_t):
                     ac_cost = self.log_likelihood_scaled[frame, int(arc_t.ilabel)]
@@ -238,8 +226,8 @@ class WFSTDecoder:
 
                             if (arc_t.nextstate, state_lg) in self.cur_toks: # only update T state
                                 if self.cur_toks[(arc_t.nextstate, state_lg)].cost > new_tok.cost:
-                                    print('Updating token for ', (arc_t.nextstate, state_lg))
-                                    print('new_tok.cost', new_tok.cost)
+                                    # print('Updating token for ', (arc_t.nextstate, state_lg))
+                                    # print('new_tok.cost', new_tok.cost)
                                     delete_token(
                                         self.cur_toks[(arc_t.nextstate, state_lg)])
                                     self.cur_toks[(
@@ -247,15 +235,15 @@ class WFSTDecoder:
                                 else:
                                     delete_token(new_tok)
                             else:
-                                print('Adding new state', (arc_t.nextstate, state_lg))
-                                print('new_tok.cost', new_tok.cost)
+                                # print('Adding new state', (arc_t.nextstate, state_lg))
+                                # print('new_tok.cost', new_tok.cost)
 
                                 self.cur_toks[(
                                     arc_t.nextstate, state_lg)] = new_tok
                     else: # we need to check if we need to up state LG state as well, when arc_lg.ilabel == arc_t.olabel
-                        print('Found act_t.olabel != 0', arc_t.olabel)
+                        # print('Found act_t.olabel != 0', arc_t.olabel)
                         for arc_lg in self.lg_fst.arcs(state_lg):
-                            print('arc_lg.ilabel', arc_lg.ilabel)
+                            # print('arc_lg.ilabel', arc_lg.ilabel)
                             if arc_t.olabel == arc_lg.ilabel:
                                 # print('processing the arc', arc, 'for the state', state)
                                 # print('arc.ilabel', arc.ilabel)
@@ -272,8 +260,8 @@ class WFSTDecoder:
 
                                     if (arc_t.nextstate, arc_lg.nextstate) in self.cur_toks:
                                         if self.cur_toks[(arc_t.nextstate, arc_lg.nextstate)].cost > new_tok.cost:
-                                            print('Updating token for ', (arc_t.nextstate, arc_lg.nextstate))
-                                            print('new_tok.cost', new_tok.cost)
+                                            # print('Updating token for ', (arc_t.nextstate, arc_lg.nextstate))
+                                            # print('new_tok.cost', new_tok.cost)
                                             delete_token(
                                                 self.cur_toks[(arc_t.nextstate, arc_lg.nextstate)])
                                             self.cur_toks[(
@@ -281,8 +269,8 @@ class WFSTDecoder:
                                         else:
                                             delete_token(new_tok)
                                     else:
-                                        print('Adding token for ', (arc_t.nextstate, arc_lg.nextstate))
-                                        print('new_tok.cost', new_tok.cost)
+                                        # print('Adding token for ', (arc_t.nextstate, arc_lg.nextstate))
+                                        # print('new_tok.cost', new_tok.cost)
                                         self.cur_toks[(
                                             arc_t.nextstate, arc_lg.nextstate)] = new_tok
                                 break
@@ -309,7 +297,7 @@ class WFSTDecoder:
                 continue
             for arc in self.lg_fst.arcs(state_lg):
                 if arc.ilabel == 0:
-                    print('Found Nonemmiting Arc in LG')
+                    # print('Found Nonemmiting Arc in LG')
                     new_tok = Token(arc, 0.0, tok)
                     if new_tok.cost > cutoff:
                         delete_token(new_tok)
@@ -317,7 +305,7 @@ class WFSTDecoder:
                         if (state_t, arc.nextstate) in self.cur_toks.keys():
                             # update the token for that state
                             if self.cur_toks[(state_t, arc.nextstate)].cost > new_tok.cost:
-                                print('Nonemmiting Updating token for ', (state_t, arc.nextstate))
+                                # print('Nonemmiting Updating token for ', (state_t, arc.nextstate))
                                 delete_token(
                                     self.cur_toks[(state_t, arc.nextstate)])
                                 self.cur_toks[(
@@ -326,7 +314,7 @@ class WFSTDecoder:
                             else:
                                 delete_token(new_tok)
                         else:  # Add a new state in self.cur_toks
-                            print('Nonemitting Adding token for ', (state_t, arc.nextstate))
+                            # print('Nonemitting Adding token for ', (state_t, arc.nextstate))
                             self.cur_toks[(state_t, arc.nextstate)] = new_tok
                             queue.append((state_t, arc.nextstate))
 
