@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from waterfall.wfst_decoder_multipath import WFSTDecoder
+from waterfall.decoder.wfst_decoder_multipath import WFSTDecoder
 from kaldiio import ReadHelper
 import argparse
 import logging
