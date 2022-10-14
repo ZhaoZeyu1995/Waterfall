@@ -49,6 +49,10 @@ echo "Done!"
 echo "Preparing decoding graph TLG.fst in ${dir}..."
 fsttablecompose $dir/L_disambig.fst $dir/G.fst | fstdeterminizestar --use-log=true | \
   fstminimizeencoded | fstarcsort --sort_type=ilabel > $tmpdir/LG.fst || exit 1;
+
 fsttablecompose $dir/T.fst $tmpdir/LG.fst | fstdeterminizestar --use-log=true | \
    fstrmsymbols $dir/disambig.int | fstrmepslocal | fstminimizeencoded | fstarcsort --sort_type=ilabel > $dir/TLG.fst || exit 1;
+
+fsttablecompose $dir/L_disambig.fst $dir/G.fst | fstdeterminizestar --use-log=true | \
+  fstrmsymbols $dir/phones/disambig.int | fstrmepslocal | fstminimizeencoded | fstarcsort --sort_type=ilabel > $dir/LG.fst || exit 1;
 echo "Done!"
