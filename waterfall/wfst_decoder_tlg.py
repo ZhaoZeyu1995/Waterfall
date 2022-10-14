@@ -187,7 +187,6 @@ class WFSTDecoder:
                                 best_token.cost + ac_cost
                             if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
                                 next_weight_cutoff = new_weight + adaptive_beam
-                            break
                         elif arc_t.olabel < arc_lg.ilabel:  # because LG has been arc_sorted according to the input labels
                             break
                 else:
@@ -273,7 +272,6 @@ class WFSTDecoder:
                                         # print('new_tok.cost', new_tok.cost)
                                         self.cur_toks[(
                                             arc_t.nextstate, arc_lg.nextstate)] = new_tok
-                                break
                             elif arc_t.olabel < arc_lg.ilabel:
                                 break
             delete_token(self.prev_toks[(state_t, state_lg)])
