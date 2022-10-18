@@ -38,7 +38,7 @@ grad-clip: 1
 transformer-attn-dropout-rate: 0.0
 transformer-input-layer: conv2d3
 transformer-length-normalized-loss: false
-transformer-lr: 5.0
+transformer-lr: 0.08
 transformer-warmup-steps: 25000
 transformer-encoder-activation-type: swish
 transformer-encoder-pos-enc-layer-type: rel_pos

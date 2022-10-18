@@ -52,11 +52,23 @@ class Token:
         self.t_states = t_states
         self.arc = LatticeArc(arc.ilabel, arc.olabel,
                               arc.weight, arc.nextstate)
+        self.ac_cost = acoustic_cost
         if prev_tok is not None:
-            self.cost = prev_tok.cost + float(arc.weight) + acoustic_cost
+            self.cost = prev_tok.cost + float(arc.weight) + self.ac_cost
         else:
-            self.cost = float(arc.weight) + acoustic_cost
+            self.cost = float(arc.weight) + self.ac_cost
         self.rescaled_cost = -1.0
+
+    def update_ac_cost(self, new_ac_cost):
+        # self.t_states = self.t_states.union(another.t_states)
+        self.ac_cost = -np.logaddexp(-self.ac_cost, -new_ac_cost)
+        if self.prev_tok is not None:
+            self.cost = self.prev_tok.cost + float(self.arc.weight) + self.ac_cost
+        else:
+            self.cost = float(self.arc.weight) + self.ac_cost
+
+    def update_t_states(self, new_state_t):
+        self.t_states.add(new_state_t)
 
 
 def delete_token(token: Token):
@@ -146,17 +158,19 @@ class WFSTDecoder:
         assert start_state_t != -1
         assert start_state_lg != -1
         dummy_arc = LatticeArc(0, 0, 0.0, start_state_lg)
-        self.cur_toks[start_state_lg] = Token(dummy_arc, 0.0, {start_state_t}, None)
-
+        self.cur_toks[start_state_lg] = Token(dummy_arc, 0.0, {start_state_t}, None) # (state_lg, ilabel, olabel) -> Token(arc_lg, ac_cost, {t_states}, prev)
+        # (stage_lg, ilabel, olalbe) ilabel is a phone label (int), olabel is a word label (int), they are actually the ilabel and olabel of the transition along which we get to the stage_lg
         self.num_frames_decoded = 0
         self.process_nonemitting(float('inf'))
 
     def reached_final(self):
         '''
         Check if any one of the tokens in self.cur_toks has reached to a final state of self.fst
+        We only check if state_lg has reached the final state in lg_fst.
+        Note that there may be the case that state_t has not reached the final state in t_fst.
         '''
         for state, tok in self.cur_toks.items():
-            if (tok.cost != float('inf') and self.t_fst.final(state[0]) != fst.Weight.Zero(self.t_fst.weight_type()) and self.lg_fst.final(state[1]) != fst.Weight.Zero(self.lg_fst.weight_type())):
+            if (tok.cost != float('inf') and self.lg_fst.final(state) != fst.Weight.Zero(self.lg_fst.weight_type())):
                 return True
         return False
 
@@ -175,28 +189,35 @@ class WFSTDecoder:
         # (frame, tok_count))  # This is for debugging only
 
         # print('best_token', best_token)
+        '''
+        For the weight cutoff, we only calculate the weight cutoff per (state_t, state_lg), as this is simpler and faster.
+        This weight cutoff is actually tighter than the real one, which may cause some loss.
+        However, when we propagate from self.prev_toks to self.cur_toks, we accumulate the state_t in new_tok.t_states, and ac_cost
+        with np.logaddexp
+        '''
         next_weight_cutoff = float('inf')
         if best_token is not None:  # Process the best token first, and hopefully find a proper next_weight_cutoff
             # At the beginning, best_token.arc.nextstate is the start state of the decoding graph
-            for arc_t in self.t_fst.arcs(best_state[0]):
-                # logging.info(str(self.log_likelihood_scaled.shape))
-                ac_cost = self.log_likelihood_scaled[frame, int(
-                    arc_t.ilabel)]
-                if arc_t.olabel != 0:
-                    for arc_lg in self.lg_fst.arcs(best_state[1]):
-                        # We have to make sure that the output label of T can be accepted by LG.
-                        if arc_lg.ilabel == arc_t.olabel:
-                            new_weight = float(arc_lg.weight) + \
-                                best_token.cost + ac_cost
-                            if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
-                                next_weight_cutoff = new_weight + adaptive_beam
-                        elif arc_t.olabel < arc_lg.ilabel:  # because LG has been arc_sorted according to the input labels
-                            break
-                else:
-                    # we don't have to transit in LG.
-                    new_weight = best_token.cost + ac_cost
-                    if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
-                        next_weight_cutoff = new_weight + adaptive_beam
+            for state_t in best_token.t_states:
+                for arc_t in self.t_fst.arcs(state_t):
+                    # logging.info(str(self.log_likelihood_scaled.shape))
+                    ac_cost = self.log_likelihood_scaled[frame, int(
+                        arc_t.ilabel)]
+                    if arc_t.olabel != 0:
+                        for arc_lg in self.lg_fst.arcs(best_state):
+                            # We have to make sure that the output label of T can be accepted by LG.
+                            if arc_lg.ilabel == arc_t.olabel:
+                                new_weight = float(arc_lg.weight) + \
+                                    best_token.cost + ac_cost
+                                if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
+                                    next_weight_cutoff = new_weight + adaptive_beam
+                            elif arc_t.olabel < arc_lg.ilabel:  # because LG has been arc_sorted according to the input labels
+                                break
+                    else:
+                        # we don't have to transit in LG.
+                        new_weight = best_token.cost + ac_cost
+                        if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
+                            next_weight_cutoff = new_weight + adaptive_beam
 
         # print('Got a hopefully proper next_weight_cutoff')
 
@@ -211,74 +232,87 @@ class WFSTDecoder:
             # print('tok.prev_tok', tok.prev_tok)
 
         # print('adaptive_beam', adaptive_beam)
-        for (state_t, state_lg), tok in self.prev_toks.items():
+        accum_toks = dict() # (state_lg, ilabel, olabel) -> Token(arc_lg, ac_cost_accum, {state_t}, prev)
+        # Finally, we only keep the best token with the lowest cost
+        # And merge it to (state_lg) -> Token(arc_lg, ac_cost_accum, {state_t}, prev), which is self.cur_toks
+        for state_lg, tok in self.prev_toks.items():
             # print('next_weight_cutoff', next_weight_cutoff)
+            # print('state', state)
             if tok.cost < weight_cutoff:
-                for arc_t in self.t_fst.arcs(state_t):
-                    ac_cost = self.log_likelihood_scaled[frame, int(
-                        arc_t.ilabel)]
-                    if arc_t.olabel == 0:  # we only update T state in this case
-                        # print('Found arc_t.olabel == 0')
-                        new_weight = tok.cost + ac_cost
-                        if new_weight < next_weight_cutoff:
-                            dummy_arc = LatticeArc(0, 0, 0.0, state_lg)
-                            new_tok = Token(dummy_arc, ac_cost, tok)
+                for state_t in tok.t_states:
+                    for arc_t in self.t_fst.arcs(state_t):
+                        ac_cost = self.log_likelihood_scaled[frame, int(
+                            arc_t.ilabel)]
+                        if arc_t.olabel == 0:  # we only update T state in this case
+                            # print('Found arc_t.olabel == 0')
+                            new_weight = tok.cost + ac_cost
+                            if new_weight < next_weight_cutoff:
 
-                            if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
-                                next_weight_cutoff = new_weight + adaptive_beam
+                                if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
+                                    next_weight_cutoff = new_weight + adaptive_beam
 
-                            if (arc_t.nextstate, state_lg) in self.cur_toks:  # only update T state
-                                if self.cur_toks[(arc_t.nextstate, state_lg)].cost > new_tok.cost:
+                                if state_lg in self.cur_toks:  # only update T state
                                     # print('Updating token for ', (arc_t.nextstate, state_lg))
                                     # print('new_tok.cost', new_tok.cost)
-                                    delete_token(
-                                        self.cur_toks[(arc_t.nextstate, state_lg)])
-                                    self.cur_toks[(
-                                        arc_t.nextstate, state_lg)] = new_tok
+                                    self.cur_toks[state_lg].update_ac_cost(ac_cost)
+                                    self.cur_toks[state_lg].update_t_states(arc_t.nextstate)
                                 else:
-                                    delete_token(new_tok)
-                            else:
-                                # print('Adding new state', (arc_t.nextstate, state_lg))
-                                # print('new_tok.cost', new_tok.cost)
+                                    dummy_arc = LatticeArc(0, 0, 0.0, state_lg)
+                                    new_tok = Token(dummy_arc, ac_cost, {arc_t.nextstate}, tok)
+                                    # print('Adding new state', (arc_t.nextstate, state_lg))
+                                    # print('new_tok.cost', new_tok.cost)
+                                    self.cur_toks[state_lg] = new_tok
+                        else:  # we need to check if we need to up state LG state as well, when arc_lg.ilabel == arc_t.olabel
+                            # print('Found act_t.olabel != 0', arc_t.olabel)
+                            for arc_lg in self.lg_fst.arcs(state_lg):
+                                # print('arc_lg.ilabel', arc_lg.ilabel)
+                                if arc_t.olabel == arc_lg.ilabel:
+                                    # print('processing the arc', arc, 'for the state', state)
+                                    # print('arc.ilabel', arc.ilabel)
 
-                                self.cur_toks[(
-                                    arc_t.nextstate, state_lg)] = new_tok
-                    else:  # we need to check if we need to up state LG state as well, when arc_lg.ilabel == arc_t.olabel
-                        # print('Found act_t.olabel != 0', arc_t.olabel)
-                        for arc_lg in self.lg_fst.arcs(state_lg):
-                            # print('arc_lg.ilabel', arc_lg.ilabel)
-                            if arc_t.olabel == arc_lg.ilabel:
-                                # print('processing the arc', arc, 'for the state', state)
-                                # print('arc.ilabel', arc.ilabel)
+                                    # print('Got the log_likelihood for ', arc.ilabel)
+                                    new_weight = float(
+                                        arc_lg.weight) + tok.cost + ac_cost
+                                    if new_weight < next_weight_cutoff:
+                                        # print('Created a new token for arc.ilabel', arc.ilabel)
 
-                                # print('Got the log_likelihood for ', arc.ilabel)
-                                new_weight = float(
-                                    arc_lg.weight) + tok.cost + ac_cost
-                                if new_weight < next_weight_cutoff:
-                                    new_tok = Token(arc_lg, ac_cost, tok)
-                                    # print('Created a new token for arc.ilabel', arc.ilabel)
+                                        if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
+                                            next_weight_cutoff = new_weight + adaptive_beam
 
-                                    if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
-                                        next_weight_cutoff = new_weight + adaptive_beam
-
-                                    if (arc_t.nextstate, arc_lg.nextstate) in self.cur_toks:
-                                        if self.cur_toks[(arc_t.nextstate, arc_lg.nextstate)].cost > new_tok.cost:
-                                            # print('Updating token for ', (arc_t.nextstate, arc_lg.nextstate))
-                                            # print('new_tok.cost', new_tok.cost)
-                                            delete_token(
-                                                self.cur_toks[(arc_t.nextstate, arc_lg.nextstate)])
-                                            self.cur_toks[(
-                                                arc_t.nextstate, arc_lg.nextstate)] = new_tok
+                                        if (arc_lg.nextstate, arc_lg, tok) in accum_toks:
+                                            # We need to accumulate ac_cost in this case
+                                            accum_toks[(arc_lg.nextstate, arc_lg, tok)].update_ac_cost(arc_lg)
+                                            accum_toks[(arc_lg.nextstate, arc_lg, tok)].update_t_states(arc_t.nextstate)
+                                            # if self.cur_toks[arc_lg.nextstate].cost > new_tok.cost:
+                                                # # print('Updating token for ', (arc_t.nextstate, arc_lg.nextstate))
+                                                # # print('new_tok.cost', new_tok.cost)
+                                                # delete_token(
+                                                    # self.cur_toks[arc_lg.nextstate])
+                                                # self.cur_toks[
+                                                    # arc_lg.nextstate] = new_tok
+                                            # else:
+                                                # delete_token(new_tok)
                                         else:
-                                            delete_token(new_tok)
-                                    else:
-                                        # print('Adding token for ', (arc_t.nextstate, arc_lg.nextstate))
-                                        # print('new_tok.cost', new_tok.cost)
-                                        self.cur_toks[(
-                                            arc_t.nextstate, arc_lg.nextstate)] = new_tok
-                            elif arc_t.olabel < arc_lg.ilabel:
-                                break
-            delete_token(self.prev_toks[(state_t, state_lg)])
+                                            # print('Adding token for ', (arc_t.nextstate, arc_lg.nextstate))
+                                            # print('new_tok.cost', new_tok.cost)
+
+                                            accum_toks[(arc_lg.nextstate, arc_lg, tok)] = Token(arc_lg, ac_cost, {arc_t.nextstate}, tok)
+                                elif arc_t.olabel < arc_lg.ilabel:
+                                    break
+            delete_token(self.prev_toks[state_lg])
+
+        # Process the accum_toks to keep only one best token for each state_lg
+        for (state_lg, arc_lg, tok), new_tok in accum_toks.items():
+            if state_lg in self.cur_toks:
+                if self.cur_toks[state_lg].cost > new_tok.cost:
+                    delete_token(self.cur_toks[state_lg])
+                    self.cur_toks[state_lg] = new_tok
+                else:
+                    delete_token(new_tok)
+            else:
+                self.cur_toks[state_lg] = new_tok
+            delete_token(accum_toks[(state_lg, arc_lg, tok)])
+
         self.prev_toks = {}
         self.num_frames_decoded += 1
         return next_weight_cutoff
@@ -300,11 +334,11 @@ class WFSTDecoder:
             for arc in self.lg_fst.arcs(state_lg):
                 if arc.ilabel == 0:
                     # print('Found Nonemmiting Arc in LG')
-                    new_tok = Token(arc, 0.0, tok.t_states,tok)
+                    new_tok = Token(arc, 0.0, tok.t_states, tok)
                     if new_tok.cost > cutoff:
                         delete_token(new_tok)
                     else:
-                        if  arc.nextstate in self.cur_toks.keys():
+                        if arc.nextstate in self.cur_toks.keys():
                             # update the token for that state
                             if self.cur_toks[arc.nextstate].cost > new_tok.cost:
                                 # print('Nonemmiting Updating token for ', (state_t, arc.nextstate))
@@ -408,7 +442,7 @@ class WFSTDecoder:
             for state, tok in self.cur_toks.items():
                 # print('Checking state', state)
                 # We only take the weight from LG.
-                this_cost = tok.cost + float(self.lg_fst.final(state[1]))
+                this_cost = tok.cost + float(self.lg_fst.final(state))
                 if (this_cost < best_cost and this_cost != float('inf')):
                     best_cost = this_cost
                     best_token = tok
