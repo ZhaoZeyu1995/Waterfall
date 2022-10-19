@@ -120,10 +120,10 @@ class WFSTDecoder:
             self.cur_toks = {}
             # print('process_emitting...')
             cutoff = self.process_emitting()
-            msg = 'At frame %d, after processing_emitting # prefixes %d, # (prefix, state) %d' % (
-            self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
+            # msg = 'At frame %d, after processing_emitting # prefixes %d, # (prefix, state) %d' % (
+            # self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
             # print(msg)
-            logging.info(msg)
+            # logging.info(msg)
             # self.merge_and_prune()
             # msg = 'At frame %d, after merging and pruning # prefixes %d, # (prefix, state) %d' % (
             # self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
@@ -136,9 +136,9 @@ class WFSTDecoder:
             # self.num_frames_decoded, len(self.get_cur_prefixes()))
             # logging.info(msg)
             self.process_nonemitting(cutoff)
-            msg = 'At frame %d, after processing_nonemitting # prefixes %d, # (prefix, state) %d' % (
-            self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
-            logging.info(msg)
+            # msg = 'At frame %d, after processing_nonemitting # prefixes %d, # (prefix, state) %d' % (
+            # self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
+            # logging.info(msg)
             # print(msg)
             # self.merge_and_prune()
             # msg = 'At frame %d, after merging and pruning # prefixes %d, # (prefix, state) %d' % (
