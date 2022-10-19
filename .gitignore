@@ -5,6 +5,7 @@ lightning_logs
 debug.sh
 debug*.*
 debug
+word.txt
 
 egs/*/*/data
 egs/*/*/steps

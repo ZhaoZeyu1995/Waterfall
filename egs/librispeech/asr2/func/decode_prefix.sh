@@ -11,10 +11,6 @@ nj=10
 max_active="6000"
 acoustic_scale="6"
 beam='16'
-ac_cost_threshold="30"
-score_based_threshold="20"
-count_based_threshold="50"
-
 
 . ./utils/parse_options.sh
 
@@ -50,9 +46,9 @@ fi
 acwt=$acoustic_scale
 maxac=$max_active
 
-decode_dir=$predict_dir/acwt_${acwt}-maxac_${maxac}-beam_${beam}-act_${ac_cost_threshold}-sbt_${score_based_threshold}-cbt_${count_based_threshold}
+decode_dir=$predict_dir/acwt_${acwt}-maxac_${maxac}-beam_${beam}
 mkdir -p $decode_dir
-run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_prefix.JOB.log func/decode_prefix.py --max_active $maxac --acoustic_scale $acwt --beam $beam --ac_cost_threshold $ac_cost_threshold --score_based_threshold $score_based_threshold --count_based_threshold $count_based_threshold --word_symbol_table ${lang_dir}/words.txt ${graph} $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd
+run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_prefix.JOB.log func/decode_prefix.py --max_active $maxac --acoustic_scale $acwt --beam $beam --word_symbol_table ${lang_dir}/words.txt ${graph} $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd
 
 for i in $(seq $nj); do
     utils/int2sym.pl -f 2- $lang_dir/words.txt $decode_dir/split$nj/hyp.$i.wrd | cat || exit 1

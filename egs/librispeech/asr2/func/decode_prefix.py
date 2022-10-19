@@ -23,10 +23,6 @@ def main(args):
                           max_active=args.max_active,
                           min_active=args.min_active,
                           beam=args.beam,
-                          count_based_threshold=args.count_based_threshold,
-                          score_based_threshold=args.score_based_threshold,
-                          ac_cost_threshold=args.ac_cost_threshold,
-                          allow_partial=args.allow_partial,
                           beam_delta=args.beam_delta)
 
     output_f = open(args.word_output, 'w')
@@ -40,7 +36,7 @@ def main(args):
             if words:
                 word_sequence = ' '.join([words[idx] for idx in result])
             else:
-                word_sequence = result_in_txt
+                word_sequence =  result_in_txt
             logging.info('%s %s' % (utt, word_sequence))
     output_f.write(output_f_c)
     output_f.close()
@@ -65,16 +61,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '--beam', help='The beam size during decoding, larger, slower but more accurate, default 16', type=float, default=16)
     parser.add_argument(
-        '--score_based_threshold', help='The score-based-threshold during merging and pruning. The cost higher than the best prefix by this threshold are pruned, larger, slower but more accurate, default 16', type=float, default=20)
-    parser.add_argument(
-        '--count_based_threshold', help='The count-based-threshold during merging and pruning. The maximum number of prefixes during decoding, larger, slower but more accurate, default 50', type=int, default=50)
-    parser.add_argument(
-        '--ac_cost_threshold', help='The acoustic model cost before scaling, larger, slower but more accurate, default 10', type=float, default=10)
-    parser.add_argument(
         '--beam_delta', help='The delta_beam for adjusting the pruning cutoff, default 0.5', type=float, default=0.5)
     parser.add_argument('--word_symbol_table',
                         help='The path of the word symbol table, by which the output label ids can be translated into words', type=str, default=None)
-    parser.add_argument('--allow_partial', help='Whether or not to allow partial paths, this is important when no path ends at a final state, default False', type=bool, default=False)
 
     args = parser.parse_args()
 
