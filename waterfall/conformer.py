@@ -472,7 +472,7 @@ class ConformerModel(pl.LightningModule):
                                                 device='cpu',
                                                 dtype=torch.int32)
 
-            dense_fsa_vec = k2.DenseFsaVec(log_probs=log_probs,
+            dense_fsa_vec = k2.DenseFsaVec(log_probs=torch.cat([torch.zeros_like(log_probs[:, :, :1], dtype=log_probs.dtype), log_probs], dim=-1),
                                            supervision_segments=supervision_segments)
 
             decoding_graph = self.lang.compile_training_graph(
@@ -619,10 +619,16 @@ class ConformerModel(pl.LightningModule):
         self.log('lr', lr, sync_dist=True)
 
         # if (self.trainer.global_step + 1) <= self.cfg['transformer-warmup-steps']:
+        # lr = (
+            # self.cfg['transformer-lr']
+            # * self.cfg['adim'] ** (-0.5)
+            # * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
+        # )
+
         lr = (
             self.cfg['transformer-lr']
             * self.cfg['adim'] ** (-0.5)
-            * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
+            * min(self.cfg['transformer-warmup-steps'] ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
         )
 
         for pg in optimizer.param_groups:

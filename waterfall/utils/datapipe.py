@@ -161,6 +161,21 @@ class Lang(object):
         At the same time, we need to project the input labels to output labels,
         as the input labels represent tokens in tokens.txt and output labels represent phones in phones.txt.
         '''
+        print(f'Loading topo from {self._lang_dir}/T.fst')
+        cmd = (
+            f"""fstprint {self._lang_dir}/T.fst | """
+            f"""awk -F '\t' '{{if (NF==4) {{print $0 FS "0.0"; }} else {{print $0;}}}}'"""
+        )
+        openfst_txt = os.popen(cmd).read()
+        self.topo = k2.Fsa.from_openfst(openfst_txt, acceptor=False)
+        print('Done!')
+
+    def load_topo_bak(self):
+        '''
+        Load T.fst in the lang_dir and transform it to k2 format for training or decoding
+        At the same time, we need to project the input labels to output labels,
+        as the input labels represent tokens in tokens.txt and output labels represent phones in phones.txt.
+        '''
         print(f'Loading topo from {self._lang_dir}/k2/T.fst')
         cmd = (
             f"""fstprint {self._lang_dir}/k2/T.fst | """
