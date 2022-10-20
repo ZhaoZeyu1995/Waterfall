@@ -152,7 +152,8 @@ class Lang(object):
             self.load_lexicon()
 
         if load_den_graph:
-            self.compile_denominator_graph()
+            pass
+            # self.compile_denominator_graph()
 
     def load_topo(self):
         '''
