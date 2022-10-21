@@ -16,7 +16,8 @@ do_delta=false
 #topos="ctc mmictc 2state 2state_blk mmictc_blk"
 topos="ctc 2state_blk mmictc_blk"
 #lm_suffixes="test_tgsmall test_fglarge"
-lm_suffixes="test_tgsmall"
+#lm_suffixes="test_tgsmall"
+lm_suffixes="test_fglarge"
 
 # data
 data=$LOCAL_HOME/data/librispeech
