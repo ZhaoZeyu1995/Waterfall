@@ -19,8 +19,8 @@ mkdir -p $lang/k2
 
 get_tokens_2state.py $lang/phones.txt | awk '{print $1 " " NR-1}' > $lang/tokens_disambig.txt
 
-cat $lang/tokens_disambig.txt | grep -v "#" > $lang/tokens.txt
-cat $lang/tokens_disambig.txt | grep "#" | awk '{print $2}' > $lang/disambig.int
+cat $lang/tokens_disambig.txt | grep -v "#[^\d]" > $lang/tokens.txt
+cat $lang/tokens_disambig.txt | grep "#[^\d]" | awk '{print $2}' > $lang/disambig.int
 
 get_token_fst_2state.py $lang/phones.txt |\
     fstcompile --isymbols=$lang/tokens_disambig.txt --osymbols=$lang/phones.txt \
@@ -29,7 +29,7 @@ get_token_fst_2state.py $lang/phones.txt |\
 # For k2
 
 cat $lang/tokens.txt | grep -v "<eps>" | awk '{print $1 " " NR-1}' > $lang/k2/tokens.txt
-cat $lang/phones.txt | grep -v "#" | awk '{print $1 " " NR-1}' > $lang/k2/phones.txt # no disambig symbols
+cat $lang/phones.txt | grep -v "#[^\d]" | awk '{print $1 " " NR-1}' > $lang/k2/phones.txt # no disambig symbols
 
 get_token_fst_2state.py $lang/k2/phones.txt |\
     fstcompile --isymbols=$lang/tokens.txt --osymbols=$lang/k2/phones.txt |\

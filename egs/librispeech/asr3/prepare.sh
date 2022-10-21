@@ -19,6 +19,9 @@ topos="ctc 2state_blk mmictc_blk"
 #lm_suffixes="test_tgsmall"
 lm_suffixes="test_fglarge"
 
+nbpe=5000
+bpemode=unigram
+
 # data
 data=$LOCAL_HOME/data/librispeech
 vocab_file=$LOCAL_HOME/data/librispeech/11/librispeech-vocab.txt
@@ -77,12 +80,12 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
     # download the LM resources
     #local/download_lm.sh $lm_url data/local/lm
 
-    local/prepare_bpe_dict.sh --nbpe ${nbpe} --bpemode ${bpemode} data/local/dict_bpe data/train_960 $vocab_file
+    local/prepare_bpe_dict.sh --nbpe ${nbpe} --bpemode ${bpemode} data/local/dict_bpe_${nbpe} data/train_960 $vocab_file
 
-    utils/prepare_lang.sh --position-dependent-phones false data/local/dict_bpe \
-        "<UNK>" data/local/lang_tmp_bpe data/lang_bpe
+    utils/prepare_lang.sh --position-dependent-phones false data/local/dict_bpe_${nbpe} \
+        "<UNK>" data/local/lang_tmp_bpe_${nbpe} data/lang_bpe_${nbpe}
 
-    local/format_lms.sh --src-dir data/lang_bpe data/local/lm
+    local/format_lms.sh --src-dir data/lang_bpe_${nbpe} data/local/lm
 fi
 
 feat_tr_dir=data/${train_set}/dump/delta${do_delta}; mkdir -p ${feat_tr_dir}
@@ -120,9 +123,9 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     echo "stage 4: Generating different topologies and token FSTs."
     for topo in $topos; do
         for suffix in $lm_suffixes; do
-            prepare_graph.sh --type $topo data/lang_bpe_${suffix} data/local/lang_bpe_${suffix}_${topo}_tmp
-            mkdir -p data/lang_bpe_${suffix}_${topo}/decode || exit 1;
-            k2todecode_tokens.py data/lang_bpe_${suffix}_${topo}/k2/tokens.txt > data/lang_bpe_${suffix}_${topo}/decode/tokens.txt || exit 1;
+            prepare_graph.sh --type $topo data/lang_bpe_${nbpe}_${suffix} data/local/lang_bpe_${nbpe}_${suffix}_${topo}_tmp
+            mkdir -p data/lang_bpe_${nbpe}_${suffix}_${topo}/decode || exit 1;
+            k2todecode_tokens.py data/lang_bpe_${nbpe}_${suffix}_${topo}/k2/tokens.txt > data/lang_bpe_${nbpe}_${suffix}_${topo}/decode/tokens.txt || exit 1;
         done
     done
 fi
