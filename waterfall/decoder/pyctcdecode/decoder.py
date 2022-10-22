@@ -1055,8 +1055,6 @@ class BeamSearchDecoder2StateBlk:
         beam_width: int,
         beam_prune_logp: float,
         token_min_logp: float,
-        token_min_num: int,
-        token_max_num: int,
         prune_history: bool,
         hotword_scorer: HotwordScorer,
         lm_start_state: LMState = None,
@@ -1080,14 +1078,6 @@ class BeamSearchDecoder2StateBlk:
             # print('frame_idx', frame_idx)
             max_idx = logit_col.argmax()
             idx_list = set(np.where(logit_col >= token_min_logp)[0]) | {max_idx}
-            # if len(idx_list) >= token_min_num and len(idx_list) <= token_max_num:
-                # print('Pass without pruning tokens')
-            # elif len(idx_list) > token_max_num:
-                # sort_idx = np.argsort(logit_col)
-                # idx_list = set(sort_idx[-token_max_num:]) 
-            # else:
-                # sort_idx = np.argsort(logit_col)
-                # idx_list = set(sort_idx[-token_min_num:]) 
 
 
             new_beams: List[Beam] = []
@@ -1264,8 +1254,6 @@ class BeamSearchDecoder2StateBlk:
         beam_width: int = DEFAULT_BEAM_WIDTH,
         beam_prune_logp: float = DEFAULT_PRUNE_LOGP,
         token_min_logp: float = DEFAULT_MIN_TOKEN_LOGP,
-        token_min_num: float = DEFAULT_MIN_TOKEN_NUM,
-        token_max_num: float = DEFAULT_MAX_TOKEN_NUM,
         prune_history: bool = DEFAULT_PRUNE_BEAMS,
         hotwords: Optional[Iterable[str]] = None,
         hotword_weight: float = DEFAULT_HOTWORD_WEIGHT,
@@ -1301,8 +1289,6 @@ class BeamSearchDecoder2StateBlk:
             beam_width=beam_width,
             beam_prune_logp=beam_prune_logp,
             token_min_logp=token_min_logp,
-            token_min_num=token_min_num,
-            token_max_num=token_max_num,
             prune_history=prune_history,
             hotword_scorer=hotword_scorer,
             lm_start_state=lm_start_state,
@@ -1400,8 +1386,6 @@ class BeamSearchDecoder2StateBlk:
         beam_width: int = DEFAULT_BEAM_WIDTH,
         beam_prune_logp: float = DEFAULT_PRUNE_LOGP,
         token_min_logp: float = DEFAULT_MIN_TOKEN_LOGP,
-        token_min_num: float = DEFAULT_MIN_TOKEN_NUM,
-        token_max_num: float = DEFAULT_MAX_TOKEN_NUM,
         hotwords: Optional[Iterable[str]] = None,
         hotword_weight: float = DEFAULT_HOTWORD_WEIGHT,
         lm_start_state: LMState = None,
@@ -1425,8 +1409,6 @@ class BeamSearchDecoder2StateBlk:
             beam_width=beam_width,
             beam_prune_logp=beam_prune_logp,
             token_min_logp=token_min_logp,
-            token_min_num=token_min_num,
-            token_max_num=token_max_num,
             prune_history=True,  # we can set this to True since we only care about top 1 beam
             hotwords=hotwords,
             hotword_weight=hotword_weight,
