@@ -296,10 +296,21 @@ class Wav2VecFineTuningDiverse(pl.LightningModule):
 
             assert decoding_graph.requires_grad == False
 
-            numerator = graph.graphloss(decoding_graph=decoding_graph,
-                                        dense_fsa_vec=dense_fsa_vec,
-                                        output_beam=self.cfg['output_beam'],
-                                        reduction='sum')
+            if 'mask_inf' not in self.cfg.keys() or not self.cfg['mask_inf']:
+                numerator = graph.graphloss(decoding_graph=decoding_graph,
+                                            dense_fsa_vec=dense_fsa_vec,
+                                            output_beam=self.cfg['output_beam'],
+                                            reduction='sum')
+            else:
+                numerator = graph.graphloss(decoding_graph=decoding_graph,
+                                            dense_fsa_vec=dense_fsa_vec,
+                                            output_beam=self.cfg['output_beam'],
+                                            reduction='none')
+                inf_mask = torch.logical_not(torch.isinf(numerator))
+                if False in inf_mask:
+                    logging.warn(
+                        'There are utterances whose inputs are shorter than labels..')
+                numerator = torch.masked_select(numerator, inf_mask).sum()
             if 'no_den' in self.cfg.keys() and self.cfg['no_den']:
                 loss = numerator
             else:
@@ -311,11 +322,20 @@ class Wav2VecFineTuningDiverse(pl.LightningModule):
 
                 assert den_decoding_graph.requires_grad == False
 
-                denominator = graph.graphloss(decoding_graph=den_decoding_graph,
-                                              dense_fsa_vec=dense_fsa_vec,
-                                              output_beam=self.cfg['output_beam'] if 'output_beam_den' not in self.cfg.keys(
-                                              ) else self.cfg['output_beam_den'],
-                                              reduction='sum')
+                if 'mask_inf' not in self.cfg.keys() or not self.cfg['mask_inf']:
+                    denominator = graph.graphloss(decoding_graph=den_decoding_graph,
+                                                  dense_fsa_vec=dense_fsa_vec,
+                                                  output_beam=self.cfg['output_beam'] if 'output_beam_den' not in self.cfg.keys(
+                                                  ) else self.cfg['output_beam_den'],
+                                                  reduction='sum')
+                else:
+                    denominator = graph.graphloss(decoding_graph=den_decoding_graph,
+                                                  dense_fsa_vec=dense_fsa_vec,
+                                                  output_beam=self.cfg['output_beam'] if 'output_beam_den' not in self.cfg.keys(
+                                                  ) else self.cfg['output_beam_den'],
+                                                  reduction='none')
+                    denominator = torch.masked_select(
+                        denominator, inf_mask).sum()
                 loss = numerator - denominator
 
         return loss/batch_num
@@ -336,36 +356,36 @@ class Wav2VecFineTuningDiverse(pl.LightningModule):
             # print('para', para)
             if para.grad is not None:
                 # print('para.grad', para.grad)
-            # print('para.grad.max()', para.grad.max())
-            # print('para.grad.min()', para.grad.min())
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
                 norm_sum_4 += torch.norm(para.grad).item()
         for para in self.wav2vec.encoder.transformer.layers[-3].parameters():
             # print('para', para)
             if para.grad is not None:
                 # print('para.grad', para.grad)
-            # print('para.grad.max()', para.grad.max())
-            # print('para.grad.min()', para.grad.min())
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
                 norm_sum_3 += torch.norm(para.grad).item()
         for para in self.wav2vec.encoder.transformer.layers[-2].parameters():
             # print('para', para)
             if para.grad is not None:
                 # print('para.grad', para.grad)
-            # print('para.grad.max()', para.grad.max())
-            # print('para.grad.min()', para.grad.min())
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
                 norm_sum_2 += torch.norm(para.grad).item()
         for para in self.wav2vec.encoder.transformer.layers[-1].parameters():
             # print('para', para)
             if para.grad is not None:
                 # print('para.grad', para.grad)
-            # print('para.grad.max()', para.grad.max())
-            # print('para.grad.min()', para.grad.min())
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
                 norm_sum_1 += torch.norm(para.grad).item()
         for para in self.output_layer.parameters():
             # print('para', para)
             if para.grad is not None:
                 # print('para.grad', para.grad)
-            # print('para.grad.max()', para.grad.max())
-            # print('para.grad.min()', para.grad.min())
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
                 norm_sum_lin += torch.norm(para.grad).item()
         print('norm_sum_4', norm_sum_4)
         print('norm_sum_3', norm_sum_3)
@@ -373,9 +393,8 @@ class Wav2VecFineTuningDiverse(pl.LightningModule):
         print('norm_sum_1', norm_sum_1)
         print('norm_sum_lin', norm_sum_lin)
 
-            # print('torch.max(para.grad)', torch.max(para.grad))
-            # print('torch.min(para.grad)', torch.min(para.grad))
-
+        # print('torch.max(para.grad)', torch.max(para.grad))
+        # print('torch.min(para.grad)', torch.min(para.grad))
 
     def training_step(self, batch, batch_idx, optimizer_idx=None):
         loss = self.division(batch, batch_idx, optimizer_idx)
