@@ -104,7 +104,7 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
     mkdir -p data/local/dict_bpe_${nbpe}
 
     vocab_file=data/lang_nosp_bd/words.txt
-    cat data/local/dict_nosp/cmudict/cmudict-0.7b | grep -v ";;;" | cut -d " " -f 1 > $vocab_file
+    #cat data/local/dict_nosp/cmudict/cmudict-0.7b | grep -v ";;;" | cut -d " " -f 1 > $vocab_file
 
     local/prepare_bpe_dict.sh --nbpe ${nbpe} --bpemode ${bpemode} data/local/dict_bpe_${nbpe} data/train_si284 $vocab_file
 

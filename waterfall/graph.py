@@ -39,7 +39,8 @@ class GraphLoss(nn.Module):
                 decoding_graph: k2.Fsa,
                 dense_fsa_vec: k2.DenseFsaVec,
                 target_lengths: torch.Tensor = None,
-                max_states: int = 15000000) -> torch.Tensor:
+                max_states: int = 15000000,
+                max_arcs: int = 549755813888) -> torch.Tensor:
         '''Compute the Graph loss given a decoding graph and a dense fsa vector.
 
         Args:
@@ -111,10 +112,11 @@ def graphloss(decoding_graph: k2.Fsa,
       size. If `reduction` is `mean` or `sum`, return a scalar.
     '''
     m = GraphLoss(output_beam=output_beam,
-                reduction=reduction,
-                use_double_scores=use_double_scores)
+                  reduction=reduction,
+                  use_double_scores=use_double_scores)
 
     return m(decoding_graph, dense_fsa_vec, target_lengths, max_states=max_states)
+
 
 def process_openfst(file):
     '''
@@ -135,5 +137,3 @@ def process_openfst(file):
         if len(lc) == 4:
             lines[idx] = '\t'.join(lc+['0.0\n'])
     return '\n'.join(lines)
-
-

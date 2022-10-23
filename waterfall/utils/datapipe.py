@@ -155,7 +155,7 @@ class Lang(object):
             pass
             # self.compile_denominator_graph()
 
-    def load_topo(self):
+    def load_topo_bak(self):
         '''
         Load T.fst in the lang_dir and transform it to k2 format for training or decoding
         At the same time, we need to project the input labels to output labels,
@@ -170,7 +170,7 @@ class Lang(object):
         self.topo = k2.Fsa.from_openfst(openfst_txt, acceptor=False)
         print('Done!')
 
-    def load_topo_bak(self):
+    def load_topo(self):
         '''
         Load T.fst in the lang_dir and transform it to k2 format for training or decoding
         At the same time, we need to project the input labels to output labels,

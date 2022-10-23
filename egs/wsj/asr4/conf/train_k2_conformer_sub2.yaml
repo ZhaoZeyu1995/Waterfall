@@ -1,6 +1,7 @@
 # loss_func
 loss: k2
 output_beam: 20
+#output_beam_den: 5
 # batch
 batch_size: 3
 # data pipeline
