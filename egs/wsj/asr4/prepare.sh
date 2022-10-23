@@ -119,8 +119,8 @@ fi
 
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     echo "stage 4: Generating different topologies and token FSTs."
-    for topo in $topos; do
-        for suffix in $lm_suffixes; do
+    for suffix in $lm_suffixes; do
+        for topo in $topos; do
             prepare_graph.sh --type $topo data/lang_bpe_${nbpe}_${suffix} data/local/lang_bpe_${nbpe}_${suffix}_${topo}_tmp
             mkdir -p data/lang_bpe_${nbpe}_${suffix}_${topo}/decode || exit 1;
             k2todecode_tokens.py data/lang_bpe_${nbpe}_${suffix}_${topo}/k2/tokens.txt > data/lang_bpe_${nbpe}_${suffix}_${topo}/decode/tokens.txt || exit 1;
