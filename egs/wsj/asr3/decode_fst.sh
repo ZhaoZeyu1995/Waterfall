@@ -24,7 +24,10 @@ graph=${lang_dir}/TLG.fst
 
 for decode_set in $decode_sets; do
     data_dir=data/$decode_set
-    predict_dir=$exp_dir/decode_${decode_set}${suffix}
+    predict_dir=$exp_dir/decode_${decode_set}_${suffix}
+    if [ ! -d $predict_dir ]; then
+        cp -r $exp_dir/predict_${decode_set} $predict_dir
+    fi
     for beam in $beams; do 
         for maxac in $max_active; do 
             for acwt in $acoustic_scale; do
