@@ -74,25 +74,13 @@ if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     utils/combine_data.sh data/dev data/dev_other/ data/dev_clean
 fi
 
-if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
 
-    echo "stage 2: dictionary preparation"
-    # download the LM resources
-    #local/download_lm.sh $lm_url data/local/lm
-
-    local/prepare_bpe_dict.sh --nbpe ${nbpe} --bpemode ${bpemode} data/local/dict_bpe_${nbpe} data/train_960 $vocab_file
-
-    utils/prepare_lang.sh --position-dependent-phones false data/local/dict_bpe_${nbpe} \
-        "<UNK>" data/local/lang_tmp_bpe_${nbpe} data/lang_bpe_${nbpe}
-
-    local/format_lms.sh --src-dir data/lang_bpe_${nbpe} data/local/lm
-fi
 
 feat_tr_dir=data/${train_set}/dump/delta${do_delta}; mkdir -p ${feat_tr_dir}
 feat_dt_dir=data/${train_dev}/dump/delta${do_delta}; mkdir -p ${feat_dt_dir}
 fbankdir=fbank
 
-if [ $stage -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+if [ $stage -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     echo "stage 3: compute features "
     # The feature extraction can be skipped if we only train wav2vec 2.0 model
     for x in train_clean_100 train_clean_360 train_other_500 dev_clean dev_other test_clean test_other; do
@@ -116,6 +104,20 @@ if [ $stage -le 3 ] && [ ${stop_stage} -ge 3 ]; then
             data/${rtask}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/recog/${rtask} \
             ${feat_recog_dir}
     done
+fi
+
+if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
+
+    echo "stage 2: dictionary preparation"
+    # download the LM resources
+    #local/download_lm.sh $lm_url data/local/lm
+
+    local/prepare_bpe_dict.sh --nbpe ${nbpe} --bpemode ${bpemode} data/local/dict_bpe_${nbpe} data/train_960 $vocab_file
+
+    utils/prepare_lang.sh --position-dependent-phones false data/local/dict_bpe_${nbpe} \
+        "<UNK>" data/local/lang_tmp_bpe_${nbpe} data/lang_bpe_${nbpe}
+
+    local/format_lms.sh --src-dir data/lang_bpe_${nbpe} data/local/lm
 fi
 
 
