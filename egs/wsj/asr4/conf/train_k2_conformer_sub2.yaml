@@ -3,7 +3,7 @@ loss: k2
 output_beam: 20
 #output_beam_den: 5
 # batch
-batch_size: 2
+batch_size: 1
 # data pipeline
 num_workers: 4
 # multi-gpu training
@@ -26,7 +26,7 @@ max_epochs: 1000
 
 # model
 
-accumulate_grad_batches: 16
+accumulate_grad_batches: 32
 idim: 83
 adim: 256
 aheads: 4
