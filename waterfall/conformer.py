@@ -504,7 +504,7 @@ class ConformerModel(pl.LightningModule):
                     den_decoding_graph = self.lang.den_graph.to(
                         log_probs.device)
                 else:
-                    den_decoding_graph = self.lang.topo_den.to(log_probs.device)
+                    den_decoding_graph = self.lang.topo.to(log_probs.device)
 
                 assert den_decoding_graph.requires_grad == False
 

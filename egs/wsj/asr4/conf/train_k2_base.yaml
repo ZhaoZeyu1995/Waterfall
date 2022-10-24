@@ -2,7 +2,7 @@
 loss: k2
 output_beam: 20
 # batch
-batch_size: 12
+batch_size: 2
 # data pipeline
 num_workers: 12
 # multi-gpu training

@@ -156,7 +156,7 @@ class Lang(object):
             pass
             # self.compile_denominator_graph()
 
-    def load_topo(self):
+    def load_topo_bak(self):
         '''
         Load T.fst in the lang_dir and transform it to k2 format for training or decoding
         At the same time, we need to project the input labels to output labels,
@@ -169,10 +169,11 @@ class Lang(object):
         )
         openfst_txt = os.popen(cmd).read()
         self.topo = k2.Fsa.from_openfst(openfst_txt, acceptor=False)
-        self.topo_den = k2.remove_epsilon(k2.Fsa.from_openfst(openfst_txt, acceptor=False))
+        self.topo_den = k2.remove_epsilon(
+            k2.Fsa.from_openfst(openfst_txt, acceptor=False))
         print('Done!')
 
-    def load_topo_bak(self):
+    def load_topo(self):
         '''
         Load T.fst in the lang_dir and transform it to k2 format for training or decoding
         At the same time, we need to project the input labels to output labels,
@@ -233,7 +234,7 @@ class Lang(object):
         self.den_graph = k2.arc_sort(k2.Fsa.from_openfst(
             os.popen(cmd).read(), acceptor=False))
 
-    def compile_training_graph_bak(self, word_ids_list, device):
+    def compile_training_graph(self, word_ids_list, device):
         '''
         word_ids_list: a list of lists of words_ids
         device: str, the computing device, usually should be log_probs.device where log_probs is the NN outputs
@@ -257,7 +258,8 @@ class Lang(object):
             self.topo, trans_fsa_with_self_loop, treat_epsilons_specially=False)
 
         return training_graph
-    def compile_training_graph(self, word_ids_list, device):
+
+    def compile_training_graph_bak(self, word_ids_list, device):
         '''
         word_ids_list: a list of lists of words_ids
         device: str, the computing device, usually should be log_probs.device where log_probs is the NN outputs
@@ -265,7 +267,7 @@ class Lang(object):
         return:
         the training fst according to self.topo and self.L_inv
         '''
-        self.topo= self.topo.to(device)
+        self.topo = self.topo.to(device)
         self.L_inv = self.L_inv.to(device)
 
         word_fsa = k2.linear_fsa(word_ids_list, device=device)
