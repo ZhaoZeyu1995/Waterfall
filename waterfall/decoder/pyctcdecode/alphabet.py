@@ -50,10 +50,18 @@ def _normalize_regular_alphabet(labels: List[str]) -> List[str]:
     if "_" in normalized_labels and "" not in normalized_labels:
         logger.info("Found '_' in vocabulary but not '', doing substitution.")
         normalized_labels[normalized_labels.index("_")] = ""
-    if "" not in normalized_labels:
-        logger.info("CTC blank char '' not found, appending to end.")
-        normalized_labels.append("")
+    # if "" not in normalized_labels:
+        # logger.info("CTC blank char '' not found, appending to end.")
+        # normalized_labels.append("")
     # substitute unk
+    for n, label in enumerate(normalized_labels):
+        if label.endswith('_0'):
+            logger.info(
+                "Found %s in vocabulary, interpreting as phone token, substituting with %s.",
+                label,
+                label[:-2],
+            )
+            normalized_labels[n] = label[:-2] 
     for n, label in enumerate(normalized_labels):
         if UNK_TOKEN_PTN.match(label):
             logger.info(
