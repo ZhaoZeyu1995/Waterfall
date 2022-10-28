@@ -31,7 +31,7 @@ def main(args):
                                inplace=cfg['inplace'],
                                replace_with_zero=cfg['replace_with_zero'])
     else:
-        spec_aug=None
+        spec_aug = None
 
     if cfg['loss'] == 'ctc':
         Dataset = datapipe.Dataset
@@ -67,8 +67,12 @@ def main(args):
                          persistent_workers=True,
                          collate_fn=collate_fn)
 
-    model = conformer.ConformerModel(
-        cfg['idim'], train_data.lang.num_nn_output, cfg=cfg, lang_dir=args.lang_dir)
+    if 'nowarmup' in cfg and cfg['nowarmup']:
+        model = conformer.ConformerModelNoWarmup(
+            cfg['idim'], train_data.lang.num_nn_output, cfg=cfg, lang_dir=args.lang_dir)
+    else:
+        model = conformer.ConformerModel(
+            cfg['idim'], train_data.lang.num_nn_output, cfg=cfg, lang_dir=args.lang_dir)
 
     callbacks = [pl.callbacks.ModelCheckpoint(monitor='valid_loss',
                                               save_top_k=5 if 'save_top_k' not in cfg.keys(

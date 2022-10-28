@@ -37,6 +37,7 @@ from espnet.nets.pytorch_backend.transformer.subsampling import Conv2dSubsamplin
 
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask
 
+
 class Conv2dSubsampling2(nn.Module):
     """Convolutional 2D subsampling (to 1/2 length).
 
@@ -59,7 +60,8 @@ class Conv2dSubsampling2(nn.Module):
         )
         self.out = torch.nn.Sequential(
             torch.nn.Linear(odim * (((idim - 1) // 2 - 2)), odim),
-            pos_enc if pos_enc is not None else PositionalEncoding(odim, dropout_rate),
+            pos_enc if pos_enc is not None else PositionalEncoding(
+                odim, dropout_rate),
         )
 
     def forward(self, x, x_mask):
@@ -92,7 +94,8 @@ class Conv2dSubsampling2(nn.Module):
 
         """
         if key != -1:
-            raise NotImplementedError("Support only `-1` (for `reset_parameters`).")
+            raise NotImplementedError(
+                "Support only `-1` (for `reset_parameters`).")
         return self.out[key]
 
 
@@ -118,7 +121,8 @@ class Conv2dSubsampling3(nn.Module):
         )
         self.out = torch.nn.Sequential(
             torch.nn.Linear(odim * (((idim - 2 - 1) // 3) + 1 - 2), odim),
-            pos_enc if pos_enc is not None else PositionalEncoding(odim, dropout_rate),
+            pos_enc if pos_enc is not None else PositionalEncoding(
+                odim, dropout_rate),
         )
 
     def forward(self, x, x_mask):
@@ -151,8 +155,11 @@ class Conv2dSubsampling3(nn.Module):
 
         """
         if key != -1:
-            raise NotImplementedError("Support only `-1` (for `reset_parameters`).")
+            raise NotImplementedError(
+                "Support only `-1` (for `reset_parameters`).")
         return self.out[key]
+
+
 class Encoder(torch.nn.Module):
     """Conformer encoder module.
 
@@ -269,7 +276,8 @@ class Encoder(torch.nn.Module):
             self.conv_subsampling_factor = 4
         elif input_layer == "embed":
             self.embed = torch.nn.Sequential(
-                torch.nn.Embedding(idim, attention_dim, padding_idx=padding_idx),
+                torch.nn.Embedding(idim, attention_dim,
+                                   padding_idx=padding_idx),
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
         elif isinstance(input_layer, torch.nn.Module):
@@ -303,7 +311,8 @@ class Encoder(torch.nn.Module):
                 attention_dropout_rate,
             )
         elif selfattention_layer_type == "rel_selfattn":
-            logging.info("encoder self-attention layer type = relative self-attention")
+            logging.info(
+                "encoder self-attention layer type = relative self-attention")
             assert pos_enc_layer_type == "rel_pos"
             encoder_selfattn_layer = RelPositionMultiHeadedAttention
             encoder_selfattn_layer_args = (
@@ -313,7 +322,8 @@ class Encoder(torch.nn.Module):
                 zero_triu,
             )
         else:
-            raise ValueError("unknown encoder_attn_layer: " + selfattention_layer_type)
+            raise ValueError("unknown encoder_attn_layer: " +
+                             selfattention_layer_type)
 
         # feed-forward module definition
         if positionwise_layer_type == "linear":
@@ -353,8 +363,10 @@ class Encoder(torch.nn.Module):
                 attention_dim,
                 encoder_selfattn_layer(*encoder_selfattn_layer_args),
                 positionwise_layer(*positionwise_layer_args),
-                positionwise_layer(*positionwise_layer_args) if macaron_style else None,
-                convolution_layer(*convolution_layer_args) if use_cnn_module else None,
+                positionwise_layer(
+                    *positionwise_layer_args) if macaron_style else None,
+                convolution_layer(
+                    *convolution_layer_args) if use_cnn_module else None,
                 dropout_rate,
                 normalize_before,
                 concat_after,
@@ -413,7 +425,7 @@ class Encoder(torch.nn.Module):
         return xs, masks
 
 
-class ConformerModel(pl.LightningModule):
+class ConformerModelNoWarmup(pl.LightningModule):
     def __init__(self,
                  input_dim,
                  output_dim,
@@ -424,8 +436,6 @@ class ConformerModel(pl.LightningModule):
         self.output_dim = output_dim
         self.cfg = cfg
         self.save_hyperparameters()
-
-
 
         self.encoder = Encoder(
             idim=input_dim,
@@ -473,7 +483,208 @@ class ConformerModel(pl.LightningModule):
                                                 dtype=torch.int32)
 
             # dense_fsa_vec = k2.DenseFsaVec(log_probs=torch.cat([torch.zeros_like(log_probs[:, :, :1], dtype=log_probs.dtype), log_probs], dim=-1),
-                                           # supervision_segments=supervision_segments)
+            # supervision_segments=supervision_segments)
+            dense_fsa_vec = k2.DenseFsaVec(log_probs=log_probs,
+                                           supervision_segments=supervision_segments)
+
+            decoding_graph = self.lang.compile_training_graph(
+                word_ids, log_probs.device)
+
+            assert decoding_graph.requires_grad == False
+
+            if 'mask_inf' not in self.cfg.keys() or not self.cfg['mask_inf']:
+                numerator = graph.graphloss(decoding_graph=decoding_graph,
+                                            dense_fsa_vec=dense_fsa_vec,
+                                            output_beam=self.cfg['output_beam'],
+                                            reduction='sum')
+            else:
+                numerator = graph.graphloss(decoding_graph=decoding_graph,
+                                            dense_fsa_vec=dense_fsa_vec,
+                                            output_beam=self.cfg['output_beam'],
+                                            reduction='none')
+                inf_mask = torch.logical_not(torch.isinf(numerator))
+                if False in inf_mask:
+                    logging.warn(
+                        'There are utterances whose inputs are shorter than labels..')
+                numerator = torch.masked_select(numerator, inf_mask).sum()
+            if 'no_den' in self.cfg.keys() and self.cfg['no_den']:
+                loss = numerator
+            else:
+                if 'den_with_lexicon' in self.cfg.keys() and self.cfg['den_with_lexicon']:
+                    den_decoding_graph = self.lang.den_graph.to(
+                        log_probs.device)
+                else:
+                    den_decoding_graph = self.lang.topo.to(log_probs.device)
+
+                assert den_decoding_graph.requires_grad == False
+
+                if 'mask_inf' not in self.cfg.keys() or not self.cfg['mask_inf']:
+                    denominator = graph.graphloss(decoding_graph=den_decoding_graph,
+                                                  dense_fsa_vec=dense_fsa_vec,
+                                                  output_beam=self.cfg['output_beam'] if 'output_beam_den' not in self.cfg.keys(
+                                                  ) else self.cfg['output_beam_den'],
+                                                  reduction='sum')
+                else:
+                    denominator = graph.graphloss(decoding_graph=den_decoding_graph,
+                                                  dense_fsa_vec=dense_fsa_vec,
+                                                  output_beam=self.cfg['output_beam'] if 'output_beam_den' not in self.cfg.keys(
+                                                  ) else self.cfg['output_beam_den'],
+                                                  reduction='none')
+                    denominator = torch.masked_select(
+                        denominator, inf_mask).sum()
+                loss = numerator - denominator
+
+        return loss/batch_num
+
+    def forward(self, x, xlens):
+        src_mask = make_non_pad_mask(xlens.tolist()).to(
+            x.device).unsqueeze(-2)
+        hs_pad, hs_mask = self.encoder(x, src_mask)
+        x = self.output_layer(hs_pad)
+        x = F.log_softmax(x, dim=-1)
+        return x, torch.sum(hs_mask, dim=-1, dtype=torch.long)
+
+    def debugging(self):
+        norm_sum_4 = 0.
+        norm_sum_3 = 0.
+        norm_sum_2 = 0.
+        norm_sum_1 = 0.
+        norm_sum_lin = 0.
+        for para in self.wav2vec.encoder.transformer.layers[-4].parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
+                norm_sum_4 += torch.norm(para.grad).item()
+        for para in self.wav2vec.encoder.transformer.layers[-3].parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
+                norm_sum_3 += torch.norm(para.grad).item()
+        for para in self.wav2vec.encoder.transformer.layers[-2].parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
+                norm_sum_2 += torch.norm(para.grad).item()
+        for para in self.wav2vec.encoder.transformer.layers[-1].parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
+                norm_sum_1 += torch.norm(para.grad).item()
+        for para in self.output_layer.parameters():
+            # print('para', para)
+            if para.grad is not None:
+                # print('para.grad', para.grad)
+                # print('para.grad.max()', para.grad.max())
+                # print('para.grad.min()', para.grad.min())
+                norm_sum_lin += torch.norm(para.grad).item()
+        print('norm_sum_4', norm_sum_4)
+        print('norm_sum_3', norm_sum_3)
+        print('norm_sum_2', norm_sum_2)
+        print('norm_sum_1', norm_sum_1)
+        print('norm_sum_lin', norm_sum_lin)
+
+        # print('torch.max(para.grad)', torch.max(para.grad))
+        # print('torch.min(para.grad)', torch.min(para.grad))
+
+    def training_step(self, batch, batch_idx, optimizer_idx=None):
+        loss = self.compute_loss(batch, batch_idx, optimizer_idx)
+        self.log('loss', loss, on_epoch=True, sync_dist=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        loss = self.compute_loss(batch, batch_idx)
+        self.log('valid_loss', loss, prog_bar=True,
+                 on_epoch=True, sync_dist=True)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        loss = self.compute_loss(batch, batch_idx)
+        self.log('test_loss', loss, on_epoch=True, sync_dist=True)
+        return loss
+
+    def predict_step(self, batch, batch_idx):
+        feats = batch['feats']
+        feats_lens = batch['feats_lens']
+        targets = batch['targets']
+        names = batch['names']
+        spks = batch['spks']
+        texts = batch['texts']
+        log_probs, xlens = self(feats, feats_lens)
+        return log_probs, xlens, names, spks, texts
+
+    def configure_optimizers(self):
+        optimiser = torch.optim.Adam(self.parameters())
+        return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=2, factor=0.5, min_lr=1e-6, verbose=True),
+                              'monitor': 'valid_loss'}]
+
+
+class ConformerModel(ConformerModelNoWarmup):
+    def __init__(self,
+                 input_dim,
+                 output_dim,
+                 lang_dir=None,
+                 cfg=None):
+
+        super().__init__()
+        self.output_dim = output_dim
+        self.cfg = cfg
+        self.save_hyperparameters()
+
+        self.encoder = Encoder(
+            idim=input_dim,
+            attention_dim=cfg['adim'],
+            attention_heads=cfg['aheads'],
+            linear_units=cfg['eunits'],
+            num_blocks=cfg['elayers'],
+            input_layer=cfg['transformer-input-layer'],
+            dropout_rate=cfg['dropout-rate'],
+            positional_dropout_rate=cfg['dropout-rate'],
+            attention_dropout_rate=cfg['transformer-attn-dropout-rate'],
+            pos_enc_layer_type=cfg['transformer-encoder-pos-enc-layer-type'],
+            selfattention_layer_type=cfg['transformer-encoder-selfattn-layer-type'],
+            activation_type=cfg['transformer-encoder-activation-type'],
+            macaron_style=cfg['macaron-style'],
+            use_cnn_module=cfg['use-cnn-module'],
+            zero_triu=False if 'zero-triu' not in cfg.keys(
+            ) else cfg['zero-triu'],
+            cnn_module_kernel=cfg['cnn-module-kernel'],
+            stochastic_depth_rate=0.0 if 'stochastic-depth-rate' not in cfg.keys() else cfg['stochastic-depth-rate'])
+
+        # self.freese_and_init() # This is legacy of wav2vec 2.0
+
+        self.output_layer = nn.Linear(cfg['adim'], self.output_dim)
+
+        self.lang = Lang(lang_dir, load_topo=True,
+                         load_lexicon=True, load_den_graph=True)
+
+    def freese_and_init(self):
+        # TODO
+        pass
+
+    def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
+
+        if self.cfg['loss'] in ['k2']:
+            wavs = batch['feats']
+            lengths = batch['feats_lens']
+            word_ids = batch['word_ids']
+
+            batch_num = int(wavs.shape[0])
+            log_probs, xlens = self(wavs, lengths)
+
+            supervision_segments = torch.tensor([[i, 0, xlens[i]] for i in range(batch_num)],
+                                                device='cpu',
+                                                dtype=torch.int32)
+
+            # dense_fsa_vec = k2.DenseFsaVec(log_probs=torch.cat([torch.zeros_like(log_probs[:, :, :1], dtype=log_probs.dtype), log_probs], dim=-1),
+            # supervision_segments=supervision_segments)
             dense_fsa_vec = k2.DenseFsaVec(log_probs=log_probs,
                                            supervision_segments=supervision_segments)
 
@@ -621,7 +832,7 @@ class ConformerModel(pl.LightningModule):
         optimiser = torch.optim.Adam(
             self.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
         # return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=2, verbose=True, min_lr=1e-8),
-                              # 'monitor': 'valid_loss'}]
+        # 'monitor': 'valid_loss'}]
         return optimiser
 
     def optimizer_step(self,
@@ -642,9 +853,9 @@ class ConformerModel(pl.LightningModule):
 
         # if (self.trainer.global_step + 1) <= self.cfg['transformer-warmup-steps']:
         # lr = (
-            # self.cfg['transformer-lr']
-            # * self.cfg['adim'] ** (-0.5)
-            # * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
+        # self.cfg['transformer-lr']
+        # * self.cfg['adim'] ** (-0.5)
+        # * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
         # )
 
         lr = (
@@ -655,6 +866,7 @@ class ConformerModel(pl.LightningModule):
 
         for pg in optimizer.param_groups:
             pg["lr"] = lr
+
 
 def get_model(input_dim, output_dim):
     model = ConformerModel(input_dim, output_dim)
