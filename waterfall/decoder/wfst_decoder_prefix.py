@@ -120,9 +120,9 @@ class WFSTDecoder:
             self.cur_toks = {}
             # print('process_emitting...')
             cutoff = self.process_emitting()
-            # msg = 'At frame %d, after processing_emitting # prefixes %d, # (prefix, state) %d' % (
-            # self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
-            # print(msg)
+            msg = 'At frame %d, after processing_emitting # prefixes %d, # states %d, # (prefix, state) %d' % (
+                self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.get_cur_states()), len(self.cur_toks))
+            print(msg)
             # logging.info(msg)
             # self.merge_and_prune()
             # msg = 'At frame %d, after merging and pruning # prefixes %d, # (prefix, state) %d' % (
@@ -136,8 +136,9 @@ class WFSTDecoder:
             # self.num_frames_decoded, len(self.get_cur_prefixes()))
             # logging.info(msg)
             self.process_nonemitting(cutoff)
-            # msg = 'At frame %d, after processing_nonemitting # prefixes %d, # (prefix, state) %d' % (
-            # self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.cur_toks))
+            msg = 'At frame %d, after processing_nonemitting # prefixes %d, # states %d, # (prefix, state) %d' % (
+                self.num_frames_decoded, len(self.get_cur_prefixes()), len(self.get_cur_states()), len(self.cur_toks))
+            print(msg)
             # logging.info(msg)
             # print(msg)
             # self.merge_and_prune()
@@ -191,7 +192,6 @@ class WFSTDecoder:
         for _, tokens in self.cur_toks.items():
             all_states.extend([token.nextstate for token in tokens])
         return all_states
-    
 
     def get_prefix_token_pair(self):  # Get all (prefix, token) pairs
         all_prefix_token_pair = []
@@ -227,9 +227,11 @@ class WFSTDecoder:
         for (prefix, state), cost in self.cur_toks.items():
             if (cost != float('inf') and self.fst.final(state) != fst.Weight.Zero(self.fst.weight_type())):
                 if prefix in prefix2cost:
-                    prefix2cost[prefix] = -np.logaddexp(-prefix2cost[prefix], -(cost+ np.float64(float(self.fst.final(state))))) 
+                    prefix2cost[prefix] = -np.logaddexp(-prefix2cost[prefix], -(
+                        cost + np.float64(float(self.fst.final(state)))))
                 else:
-                    prefix2cost[prefix] = cost + np.float64(float(self.fst.final(state)))
+                    prefix2cost[prefix] = cost + \
+                        np.float64(float(self.fst.final(state)))
         return prefix2cost
 
     def extract_prefix_all(self):
@@ -241,7 +243,8 @@ class WFSTDecoder:
         prefix2cost = {}
         for (prefix, state), cost in self.cur_toks.items():
             if prefix in prefix2cost:
-                prefix2cost[prefix] = -np.logaddexp(-prefix2cost[prefix], -cost)
+                prefix2cost[prefix] = - \
+                    np.logaddexp(-prefix2cost[prefix], -cost)
             else:
                 prefix2cost[prefix] = cost
         return prefix2cost
@@ -252,6 +255,11 @@ class WFSTDecoder:
             all_prefixes.add(prefix)
         return all_prefixes
 
+    def get_cur_states(self):
+        all_states = set()
+        for (_, state) in self.cur_toks:
+            all_states.add(state)
+        return all_states
 
     def process_emitting(self):
         frame = self.num_frames_decoded
@@ -260,9 +268,8 @@ class WFSTDecoder:
         weight_cutoff, adaptive_beam, best_token, tok_count = self.get_cutoff()
         # print('Calculating cutoff finished')
 
-
         # logging.info('For frame %d, there are %d tokens' %
-                      # (frame, tok_count))  # This is for debugging only
+        # (frame, tok_count))  # This is for debugging only
 
         # print('best_token', best_token)
         next_weight_cutoff = float('inf')
@@ -273,7 +280,8 @@ class WFSTDecoder:
                 if arc.ilabel != 0:
                     ac_cost = self.log_likelihood_scaled[frame, int(
                         arc.ilabel)-1]
-                    new_weight = np.float64(float(arc.weight)) + np.float64(self.prev_toks[best_token]) + np.float64(ac_cost)
+                    new_weight = np.float64(
+                        float(arc.weight)) + np.float64(self.prev_toks[best_token]) + np.float64(ac_cost)
                     if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
                         next_weight_cutoff = new_weight + adaptive_beam
 
@@ -297,22 +305,27 @@ class WFSTDecoder:
                         ac_cost = np.float64(self.log_likelihood_scaled[frame, int(
                             arc.ilabel)-1])
                         # print('Got the log_likelihood for ', arc.ilabel)
-                        new_weight = np.float64(float(arc.weight)) + cost + ac_cost
+                        new_weight = np.float64(
+                            float(arc.weight)) + cost + ac_cost
                         if new_weight < next_weight_cutoff:
                             # print('Created a new token for arc.ilabel', arc.ilabel)
 
                             if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
                                 next_weight_cutoff = new_weight + adaptive_beam
 
-                            new_prefix = prefix if arc.olabel == 0 else prefix + (arc.olabel,)
+                            new_prefix = prefix if arc.olabel == 0 else prefix + \
+                                (arc.olabel,)
                             if (new_prefix, arc.nextstate) in self.cur_toks:
-                                self.cur_toks[(new_prefix, arc.nextstate)] = -np.logaddexp(-self.cur_toks[(new_prefix, arc.nextstate)], -new_weight)
+                                self.cur_toks[(new_prefix, arc.nextstate)] = -np.logaddexp(-self.cur_toks[(
+                                    new_prefix, arc.nextstate)], -new_weight)
                             else:
-                                self.cur_toks[(new_prefix, arc.nextstate)] = new_weight
+                                self.cur_toks[(
+                                    new_prefix, arc.nextstate)] = new_weight
             # del self.prev_toks[(prefix, state)]
         self.prev_toks = {}
         self.num_frames_decoded += 1
         return next_weight_cutoff
+
     def process_emitting_bak(self):
         """Process one step emitting states using callback function
         Returns:
@@ -335,7 +348,8 @@ class WFSTDecoder:
                 if arc.ilabel != 0:
                     ac_cost = self.log_likelihood_scaled[frame, int(
                         arc.ilabel)-1]
-                    new_weight = float(arc.weight) + self.prev_toks[best_token] + ac_cost
+                    new_weight = float(arc.weight) + \
+                        self.prev_toks[best_token] + ac_cost
                     if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
                         next_weight_cutoff = new_weight + adaptive_beam
 
@@ -361,7 +375,7 @@ class WFSTDecoder:
                     # print('arc.ilabel', arc.ilabel)
                     ac_cost = self.log_likelihood_scaled[frame, int(
                         arc.ilabel)-1]
-                    if ac_cost  > dynamic_ac_cost_threshold:
+                    if ac_cost > dynamic_ac_cost_threshold:
                         # logging.info('Ignoring the arc.ilabel %d' % (arc.ilabel))
                         continue
 
@@ -375,7 +389,6 @@ class WFSTDecoder:
                         continue
                     if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
                         next_weight_cutoff = new_weight + adaptive_beam
-
 
                     # print('Created a new token for arc.ilabel', arc.ilabel)
 
@@ -554,7 +567,7 @@ class WFSTDecoder:
         if not is_final:
             logging.warn('Not reached the final states!')
             if self.allow_partial:
-            # logging.info('Allow partial!')
+                # logging.info('Allow partial!')
                 prefix2cost = self.extract_prefix_all()
                 best_cost = float('inf')
                 best_prefix = None

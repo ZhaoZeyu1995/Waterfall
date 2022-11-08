@@ -113,8 +113,16 @@ class WFSTDecoder:
             self.cur_toks = {}
             # print('process_emitting...')
             weight_cutoff = self.process_emitting()
+            msg = 'At frame %d, after processing_emitting # states %d' % (
+                self.num_frames_decoded, len(self.cur_toks))
+            print(msg)
+            # logging.info(msg)
             # print('process_nonemitting...')
             self.process_nonemitting(weight_cutoff)
+            msg = 'At frame %d, after processing_nonemitting # states %d' % (
+                self.num_frames_decoded, len(self.cur_toks))
+            print(msg)
+            # logging.info(msg)
 
     def init_decoding(self):
         """Init decoding states for every input utterance
