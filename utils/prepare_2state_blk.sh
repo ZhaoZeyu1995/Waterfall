@@ -31,8 +31,6 @@ get_token_fst_2state_blk.py $lang/phones.txt |\
 cat $lang/tokens.txt | grep -v "<eps>" | awk '{print $1 " " NR-1}' > $lang/k2/tokens.txt
 cat $lang/phones.txt | grep -v "#[^\d]" | awk '{print $1 " " NR-1}' > $lang/k2/phones.txt # no disambig symbols
 
-get_token_fst_2state_blk.py $lang/k2/phones.txt |\
+get_token_fst_2state_blk_k2.py $lang/k2/phones.txt |\
     fstcompile --isymbols=$lang/tokens.txt --osymbols=$lang/k2/phones.txt |\
-    fstrmepsilon | fstprint --isymbols=$lang/tokens.txt --osymbols=$lang/k2/phones.txt |\
-    fstcompile --isymbols=$lang/k2/tokens.txt --osymbols=$lang/k2/phones.txt |\
     fstarcsort --sort_type=olabel > $lang/k2/T.fst

@@ -626,7 +626,7 @@ class ConformerModelNoWarmup(pl.LightningModule):
                               'monitor': 'valid_loss'}]
 
 
-class ConformerModel(ConformerModelNoWarmup):
+class ConformerModel(pl.LightningModule):
     def __init__(self,
                  input_dim,
                  output_dim,
