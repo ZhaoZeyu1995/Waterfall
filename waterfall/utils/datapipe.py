@@ -179,9 +179,10 @@ class Lang(object):
         At the same time, we need to project the input labels to output labels,
         as the input labels represent tokens in tokens.txt and output labels represent phones in phones.txt.
         '''
-        print(f'Loading topo from {self._lang_dir}/k2/T.fst')
+        print(f'Loading and processing topo from {self._lang_dir}/k2/T.fst')
         cmd = (
             f"""fstprint {self._lang_dir}/k2/T.fst | """
+            # f"""awk -F '\t' '{{if (NF==4) {{print $0 FS "0.0"; }} else if (NF==5) {{$5="0.0"; print $1 FS $2 FS $3 FS $4 FS $5}} else if (NF==2) {{print $1;}} else {{print $0;}}}}'"""
             f"""awk -F '\t' '{{if (NF==4) {{print $0 FS "0.0"; }} else {{print $0;}}}}'"""
         )
         openfst_txt = os.popen(cmd).read()

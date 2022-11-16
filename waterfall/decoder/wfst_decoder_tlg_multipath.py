@@ -196,28 +196,38 @@ class WFSTDecoder:
         with np.logaddexp
         '''
         next_weight_cutoff = float('inf')
+        accum_cost = dict()  # (state_l) -> cost
         if best_token is not None:  # Process the best token first, and hopefully find a proper next_weight_cutoff
             # At the beginning, best_token.arc.nextstate is the start state of the decoding graph
             for state_t in best_token.t_states:
                 for arc_t in self.t_fst.arcs(state_t):
                     # logging.info(str(self.log_likelihood_scaled.shape))
                     ac_cost = self.log_likelihood_scaled[frame, int(
-                        arc_t.ilabel)]
+                        arc_t.ilabel)-1]
                     if arc_t.olabel != 0:
                         for arc_lg in self.lg_fst.arcs(best_state):
                             # We have to make sure that the output label of T can be accepted by LG.
                             if arc_lg.ilabel == arc_t.olabel:
                                 new_weight = float(arc_lg.weight) + \
                                     best_token.cost + ac_cost
-                                if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
-                                    next_weight_cutoff = new_weight + adaptive_beam
+                                if arc_lg.nextstate not in accum_cost:
+                                    accum_cost[arc_lg.nextstate] = new_weight
+                                else:
+                                    accum_cost[arc_lg.nextstate] = -np.logaddexp(-accum_cost[arc_lg.nextstate], -new_weight)
+                                # if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
+                                    # next_weight_cutoff = new_weight + adaptive_beam
                             elif arc_t.olabel < arc_lg.ilabel:  # because LG has been arc_sorted according to the input labels
                                 break
                     else:
                         # we don't have to transit in LG.
                         new_weight = best_token.cost + ac_cost
-                        if new_weight + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
-                            next_weight_cutoff = new_weight + adaptive_beam
+                        if best_state not in accum_cost:
+                            accum_cost[best_state] = new_weight
+                        else:
+                            accum_cost[best_state] = -np.logaddexp(-accum_cost[best_state], -new_weight)
+        for _, cost in accum_cost.items():
+            if cost + adaptive_beam < next_weight_cutoff:  # make next_weight_cutoff tighter
+                next_weight_cutoff = cost + adaptive_beam
 
         # print('Got a hopefully proper next_weight_cutoff')
 
@@ -235,21 +245,23 @@ class WFSTDecoder:
         accum_toks = dict() # (state_lg, ilabel, olabel) -> Token(arc_lg, ac_cost_accum, {state_t}, prev)
         # Finally, we only keep the best token with the lowest cost
         # And merge it to (state_lg) -> Token(arc_lg, ac_cost_accum, {state_t}, prev), which is self.cur_toks
+        pruned_toks = []
         for state_lg, tok in self.prev_toks.items():
             # print('next_weight_cutoff', next_weight_cutoff)
             # print('state', state)
             if tok.cost < weight_cutoff:
+                # We only update the toks whose cost is lower than weight_cutoff
                 for state_t in tok.t_states:
                     for arc_t in self.t_fst.arcs(state_t):
                         ac_cost = self.log_likelihood_scaled[frame, int(
                             arc_t.ilabel)]
-                        if arc_t.olabel == 0:  # we only update T state in this case
+                        if arc_t.olabel == 0 and (state_lg, None, tok) not in pruned_toks:  # we only update T state in this case
                             # print('Found arc_t.olabel == 0')
                             new_weight = tok.cost + ac_cost
                             if new_weight < next_weight_cutoff:
 
-                                if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
-                                    next_weight_cutoff = new_weight + adaptive_beam
+                                # if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
+                                    # next_weight_cutoff = new_weight + adaptive_beam
 
                                 if state_lg in self.cur_toks:  # only update T state
                                     # print('Updating token for ', (arc_t.nextstate, state_lg))
@@ -262,11 +274,16 @@ class WFSTDecoder:
                                     # print('Adding new state', (arc_t.nextstate, state_lg))
                                     # print('new_tok.cost', new_tok.cost)
                                     self.cur_toks[state_lg] = new_tok
+                            else:
+                                pruned_toks.append((state_lg, None, tok))
+                                if state_lg in self.cur_toks:
+                                    delete_token(self.cur_toks[state_lg])
+                                    del self.cur_toks[state_lg]
                         else:  # we need to check if we need to up state LG state as well, when arc_lg.ilabel == arc_t.olabel
                             # print('Found act_t.olabel != 0', arc_t.olabel)
                             for arc_lg in self.lg_fst.arcs(state_lg):
                                 # print('arc_lg.ilabel', arc_lg.ilabel)
-                                if arc_t.olabel == arc_lg.ilabel:
+                                if arc_t.olabel == arc_lg.ilabel and (arc_lg.nextstate, arc_lg, tok) not in pruned_toks:
                                     # print('processing the arc', arc, 'for the state', state)
                                     # print('arc.ilabel', arc.ilabel)
 
@@ -276,8 +293,8 @@ class WFSTDecoder:
                                     if new_weight < next_weight_cutoff:
                                         # print('Created a new token for arc.ilabel', arc.ilabel)
 
-                                        if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
-                                            next_weight_cutoff = new_weight + adaptive_beam
+                                        # if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
+                                            # next_weight_cutoff = new_weight + adaptive_beam
 
                                         if (arc_lg.nextstate, arc_lg, tok) in accum_toks:
                                             # We need to accumulate ac_cost in this case
@@ -297,12 +314,22 @@ class WFSTDecoder:
                                             # print('new_tok.cost', new_tok.cost)
 
                                             accum_toks[(arc_lg.nextstate, arc_lg, tok)] = Token(arc_lg, ac_cost, {arc_t.nextstate}, tok)
+                                    else:
+                                        pruned_toks.append((arc_lg.nextstate, arc_lg, tok))
+                                        if (arc_lg.nextstate, arc_lg, tok) in accum_toks:
+                                            delete_token(accum_toks[(arc_lg.nextstate, arc_lg, tok)])
+                                            del accum_toks[(arc_lg.nextstate, arc_lg, tok)]
                                 elif arc_t.olabel < arc_lg.ilabel:
                                     break
             delete_token(self.prev_toks[state_lg])
 
         # Process the accum_toks to keep only one best token for each state_lg
         for (state_lg, arc_lg, tok), new_tok in accum_toks.items():
+            if new_tok.cost > next_weight_cutoff:
+                delete_token(new_tok)
+                continue
+            if new_tok.cost + adaptive_beam < next_weight_cutoff:
+                next_weight_cutoff = new_tok.cost + adaptive_beam
             if state_lg in self.cur_toks:
                 if self.cur_toks[state_lg].cost > new_tok.cost:
                     delete_token(self.cur_toks[state_lg])

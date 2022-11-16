@@ -514,7 +514,7 @@ class ConformerModelNoWarmup(pl.LightningModule):
                     den_decoding_graph = self.lang.den_graph.to(
                         log_probs.device)
                 else:
-                    den_decoding_graph = self.lang.topo.to(log_probs.device)
+                    den_decoding_graph = k2.create_fsa_vec([self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
 
                 assert den_decoding_graph.requires_grad == False
 
@@ -715,7 +715,7 @@ class ConformerModel(pl.LightningModule):
                     den_decoding_graph = self.lang.den_graph.to(
                         log_probs.device)
                 else:
-                    den_decoding_graph = self.lang.topo.to(log_probs.device)
+                    den_decoding_graph = k2.create_fsa_vec([self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
 
                 assert den_decoding_graph.requires_grad == False
 
