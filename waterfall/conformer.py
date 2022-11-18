@@ -622,8 +622,8 @@ class ConformerModelNoWarmup(pl.LightningModule):
         return log_probs, xlens, names, spks, texts
 
     def configure_optimizers(self):
-        optimiser = torch.optim.Adam(self.parameters(), lr=self.cfg['lr'])
-        return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=self.cfg['lr_patience'], factor=self.cfg['factor'], min_lr=self.cfg['final_lr'], verbose=True),
+        optimiser = torch.optim.Adam(self.parameters(), lr=float(self.cfg['lr']))
+        return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=self.cfg['lr_patience'], factor=self.cfg['factor'], min_lr=float(self.cfg['final_lr']), verbose=True),
                               'monitor': 'valid_loss'}]
 
 
