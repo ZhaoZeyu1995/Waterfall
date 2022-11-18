@@ -8,12 +8,11 @@ num_workers: 4
 # multi-gpu training
 strategy: ddp
 # optimiser
-#optimiser: adam
-#learning_rate: 1e-3
-#factor: 0.2
-#eps: 1e-8
-#weight_decay: 0.
-#lr_patience: 2
+optimiser: adam
+lr: 1e-5
+lr_patience: 1
+factor: 0.2
+final_lr: 1e-7
 # random seed
 seed: 777
 # early_stopping

@@ -514,7 +514,8 @@ class ConformerModelNoWarmup(pl.LightningModule):
                     den_decoding_graph = self.lang.den_graph.to(
                         log_probs.device)
                 else:
-                    den_decoding_graph = k2.create_fsa_vec([self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
+                    den_decoding_graph = k2.create_fsa_vec(
+                        [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
 
                 assert den_decoding_graph.requires_grad == False
 
@@ -621,8 +622,8 @@ class ConformerModelNoWarmup(pl.LightningModule):
         return log_probs, xlens, names, spks, texts
 
     def configure_optimizers(self):
-        optimiser = torch.optim.Adam(self.parameters(), lr=1e-4)
-        return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=2, factor=0.5, min_lr=1e-7, verbose=True),
+        optimiser = torch.optim.Adam(self.parameters(), lr=self.cfg['lr'])
+        return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=self.cfg['lr_patience'], factor=self.cfg['factor'], min_lr=self.cfg['final_lr'], verbose=True),
                               'monitor': 'valid_loss'}]
 
 
@@ -715,7 +716,8 @@ class ConformerModel(pl.LightningModule):
                     den_decoding_graph = self.lang.den_graph.to(
                         log_probs.device)
                 else:
-                    den_decoding_graph = k2.create_fsa_vec([self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
+                    den_decoding_graph = k2.create_fsa_vec(
+                        [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
 
                 assert den_decoding_graph.requires_grad == False
 
