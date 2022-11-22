@@ -318,7 +318,8 @@ class Wav2VecFineTuningDiverse(pl.LightningModule):
                     den_decoding_graph = self.lang.den_graph.to(
                         log_probs.device)
                 else:
-                    den_decoding_graph = self.lang.topo.to(log_probs.device)
+                    den_decoding_graph = k2.create_fsa_vec(
+                        [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
 
                 assert den_decoding_graph.requires_grad == False
 
@@ -424,11 +425,13 @@ class Wav2VecFineTuningDiverse(pl.LightningModule):
 
     def configure_optimizers(self):
         if 'same_optimiser_for_finetuning' in self.cfg.keys() and self.cfg['same_optimiser_for_finetuning']:
-            optimiser = torch.optim.Adam(self.parameters())
+            optimiser = torch.optim.Adam(self.parameters(), lr=float(self.cfg['lr']))
             if self.cfg['loss'] == 'ctc_softmax' and 'auto_eta_scheduler' in self.cfg.keys() and self.cfg['auto_eta_scheduler']:
                 return [optimiser], [{'scheduler': eta_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=self.cfg['patience_eta'], verbose=True, factor=0.2),
                                       'monitor': 'valid_loss'}]
-            return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=2, verbose=True),
+            # scheduler1 = torch.optim.lr_scheduler.LambdaLR(optimiser, lr_lambda=lambda epoch:10., verbose=True)
+            # scheduler2 = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=self.cfg['lr_patience'], factor=self.cfg['factor'], verbose=True)
+            return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=self.cfg['lr_patience'], factor=self.cfg['factor'], verbose=True),
                                   'monitor': 'valid_loss'}]
         else:
             optimiser = torch.optim.Adam(self.wav2vec.parameters(), lr=1e-4)
