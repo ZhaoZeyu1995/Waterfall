@@ -363,9 +363,9 @@ class WFSTDecoder:
             prefix_and_score = sorted(list(prefix2cost.items()), key=lambda x:x[1][0])
             num_active_tokens = len(self.cur_toks)
             num_active_prefixes = len(prefix_and_score)
-            logging.info('num_active_tokens', num_active_tokens)
-            logging.info('num_active_prefixes', num_active_prefixes)
-            logging.info('best_prefix_num_tokens', prefix_and_score[0][1][1])
+            logging.info('num_active_tokens ' + str(num_active_tokens))
+            logging.info('num_active_prefixes ' + str(num_active_prefixes))
+            logging.info('best_prefix_num_tokens ' + str(prefix_and_score[0][1][1]))
             return prefix_and_score[0][0]
         else:
             best_cost = float('inf')
@@ -384,9 +384,9 @@ class WFSTDecoder:
             prefix_and_score = sorted(list(prefix2cost.items()), key=lambda x:x[1])
             num_active_tokens = len(self.cur_toks)
             num_active_prefixes = len(prefix_and_score)
-            logging.info('num_active_tokens', num_active_tokens)
-            logging.info('num_active_prefixes', num_active_prefixes)
-            logging.info('best_prefix_num_tokens', prefix_and_score[0][1][1])
+            logging.info('num_active_tokens ' + str(num_active_tokens))
+            logging.info('num_active_prefixes ' + str(num_active_prefixes))
+            logging.info('best_prefix_num_tokens ' + str(prefix_and_score[0][1][1]))
             return prefix_and_score[0][0]
         if (best_token is None):
             return False  # No output
