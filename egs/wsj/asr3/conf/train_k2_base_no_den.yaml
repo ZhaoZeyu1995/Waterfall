@@ -8,8 +8,8 @@ num_workers: 12
 # multi-gpu training
 strategy: ddp
 # optimiser
-lr: 1e-4
-factor: 0.2
+lr: 1e-5
+factor: 0.1
 lr_patience: 2
 # random seed
 seed: 777
