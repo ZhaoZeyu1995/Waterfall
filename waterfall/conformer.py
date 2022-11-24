@@ -867,7 +867,7 @@ class ConformerModel(pl.LightningModule):
         # * min(self.cfg['transformer-warmup-steps'] ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
         # )
         lr = (
-            self.cfg['final_lr']
+            float(self.cfg['final_lr'])
             * min((self.trainer.global_step+1) ** (-1) * self.cfg['transformer-warmup-steps'],
                   (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
         )
