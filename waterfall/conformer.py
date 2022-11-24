@@ -622,7 +622,8 @@ class ConformerModelNoWarmup(pl.LightningModule):
         return log_probs, xlens, names, spks, texts
 
     def configure_optimizers(self):
-        optimiser = torch.optim.Adam(self.parameters(), lr=float(self.cfg['lr']))
+        optimiser = torch.optim.Adam(
+            self.parameters(), lr=float(self.cfg['lr']))
         return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=self.cfg['lr_patience'], factor=self.cfg['factor'], min_lr=float(self.cfg['final_lr']), verbose=True),
                               'monitor': 'valid_loss'}]
 
@@ -860,10 +861,15 @@ class ConformerModel(pl.LightningModule):
         # * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
         # )
 
+        # lr = (
+        # self.cfg['transformer-lr']
+        # * self.cfg['adim'] ** (-0.5)
+        # * min(self.cfg['transformer-warmup-steps'] ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
+        # )
         lr = (
-            self.cfg['transformer-lr']
-            * self.cfg['adim'] ** (-0.5)
-            * min(self.cfg['transformer-warmup-steps'] ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
+            self.cfg['final_lr']
+            * min((self.trainer.global_step+1) ** (-1) * self.cfg['transformer-warmup-steps'],
+                  (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
         )
 
         for pg in optimizer.param_groups:

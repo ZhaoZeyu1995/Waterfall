@@ -57,3 +57,6 @@ max_time_width: 40
 n_time_mask: 2
 inplace: true
 replace_with_zero: false
+
+# Training
+no_den: true
