@@ -866,9 +866,14 @@ class ConformerModel(pl.LightningModule):
         # * self.cfg['adim'] ** (-0.5)
         # * min(self.cfg['transformer-warmup-steps'] ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
         # )
+        # lr = (
+            # float(self.cfg['final_lr'])
+            # * min((self.trainer.global_step+1) ** (-1) * self.cfg['transformer-warmup-steps'],
+                  # (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
+        # )
         lr = (
             float(self.cfg['final_lr'])
-            * min((self.trainer.global_step+1) ** (-1) * self.cfg['transformer-warmup-steps'],
+            * min(1.,
                   (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
         )
 
