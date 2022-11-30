@@ -32,7 +32,7 @@ class Token:
     used in model
     """
 
-    def __init__(self, arc, acoustic_cost, prev_tok=None, prefix=()):
+    def __init__(self, arc, acoustic_cost, prefix=(), prev_tok=None):
         self.prev_tok = prev_tok
         self.prefix = prefix
         self.arc = LatticeArc(arc.ilabel, arc.olabel,
@@ -71,7 +71,8 @@ class WFSTDecoder:
                  max_active=2000,
                  min_active=20,
                  beam=16.0,
-                 beam_delta=0.5):
+                 beam_delta=0.5,
+                 word_symbol_table=None):
         """Init decoder set some inner variance.
 
         Args:
@@ -113,15 +114,15 @@ class WFSTDecoder:
             self.cur_toks = {}
             # print('process_emitting...')
             weight_cutoff = self.process_emitting()
-            # msg = 'At frame %d, after processing_emitting # states %d' % (
-                # self.num_frames_decoded, len(self.cur_toks))
-            # logging.info(msg)
+            msg = 'At frame %d, after processing_emitting # states %d # tokens %d' % (
+                self.num_frames_decoded, len(self.cur_toks), len(self.get_all_cur_toks()))
+            print(msg)
             # logging.info(msg)
             # print('process_nonemitting...')
             self.process_nonemitting(weight_cutoff)
-            # msg = 'At frame %d, after processing_nonemitting # states %d' % (
-                # self.num_frames_decoded, len(self.cur_toks))
-            # logging.info(msg)
+            msg = 'At frame %d, after processing_nonemitting # states %d # tokens %d' % (
+                self.num_frames_decoded, len(self.cur_toks), len(self.get_all_cur_toks()))
+            print(msg)
             # logging.info(msg)
 
     def init_decoding(self):
@@ -133,31 +134,32 @@ class WFSTDecoder:
         start_state = self.fst.start()
         assert start_state != -1
         dummy_arc = LatticeArc(0, 0, 0.0, start_state)
-        self.cur_toks[start_state] = Token(dummy_arc, 0.0, None, ())
+        self.cur_toks[start_state] = {Token(dummy_arc, 0.0, (), None)}
         # print('Before processing_nonemitting...')
         # for state, tok in self.cur_toks.items():
-            # print('state', state)
-            # print('tok.arc.ilabel', tok.arc.ilabel)
-            # print('tok.arc.olabel', tok.arc.olabel)
-            # print('tok.cost', tok.cost)
-            # print('tok.prev_tok', tok.prev_tok)
+        # print('state', state)
+        # print('tok.arc.ilabel', tok.arc.ilabel)
+        # print('tok.arc.olabel', tok.arc.olabel)
+        # print('tok.cost', tok.cost)
+        # print('tok.prev_tok', tok.prev_tok)
         self.num_frames_decoded = 0
         self.process_nonemitting(float('inf'))
         # print('After processing_nonemitting...')
         # for state, tok in self.cur_toks.items():
-            # print('state', state)
-            # print('tok.arc.ilabel', tok.arc.ilabel)
-            # print('tok.arc.olabel', tok.arc.olabel)
-            # print('tok.cost', tok.cost)
-            # print('tok.prev_tok', tok.prev_tok)
+        # print('state', state)
+        # print('tok.arc.ilabel', tok.arc.ilabel)
+        # print('tok.arc.olabel', tok.arc.olabel)
+        # print('tok.cost', tok.cost)
+        # print('tok.prev_tok', tok.prev_tok)
 
     def reached_final(self):
         '''
         Check if any one of the tokens in self.cur_toks has reached to a final state of self.fst
         '''
-        for state, tok in self.cur_toks.items():
-            if (tok.cost != float('inf') and self.fst.final(state) != fst.Weight.Zero(self.fst.weight_type())):
-                return True
+        for state, toks in self.cur_toks.items():
+            for tok in toks:
+                if (tok.cost != float('inf') and self.fst.final(state) != fst.Weight.Zero(self.fst.weight_type())):
+                    return True
         return False
 
     def process_emitting(self):
@@ -171,9 +173,8 @@ class WFSTDecoder:
         weight_cutoff, adaptive_beam, best_token, tok_count = self.get_cutoff()
         # print('Calculating cutoff finished')
 
-
         # logging.info('For frame %d, there are %d tokens' %
-                      # (frame, tok_count))  # This is for debugging only
+        # (frame, tok_count))  # This is for debugging only
 
         # print('best_token', best_token)
         next_weight_cutoff = float('inf')
@@ -198,33 +199,30 @@ class WFSTDecoder:
             # print('tok.cost', tok.cost)
             # print('tok.prev_tok', tok.prev_tok)
 
-        for state, tok in self.prev_toks.items():
-            if tok.cost < weight_cutoff:
-                for arc in self.fst.arcs(state):
-                    if arc.ilabel != 0:
-                        # print('processing the arc', arc, 'for the state', state)
-                        # print('arc.ilabel', arc.ilabel)
-                        ac_cost = self.log_likelihood_scaled[frame, int(
-                            arc.ilabel)-1]
-                        # print('Got the log_likelihood for ', arc.ilabel)
-                        new_weight = float(arc.weight) + tok.cost + ac_cost
-                        if new_weight < next_weight_cutoff:
-                            new_prefix = tok.prefix + (arc.olabel,) if arc.olabel !=0 else tok.prefix
-                            new_tok = Token(arc, ac_cost, tok, new_prefix)
-                            # print('Created a new token for arc.ilabel', arc.ilabel)
+        for state, toks in self.prev_toks.items():
+            for tok in toks:
+                if tok.cost < weight_cutoff:
+                    for arc in self.fst.arcs(state):
+                        if arc.ilabel != 0:
+                            # print('processing the arc', arc, 'for the state', state)
+                            # print('arc.ilabel', arc.ilabel)
+                            ac_cost = self.log_likelihood_scaled[frame, int(
+                                arc.ilabel)-1]
+                            # print('Got the log_likelihood for ', arc.ilabel)
+                            new_weight = float(arc.weight) + tok.cost + ac_cost
+                            if new_weight < next_weight_cutoff:
+                                new_prefix = tok.prefix + (arc.olabel,) if arc.olabel != 0 else tok.prefix
+                                new_tok = Token(arc, ac_cost, new_prefix, tok)
+                                # print('Created a new token for arc.ilabel', arc.ilabel)
 
-                            if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
-                                next_weight_cutoff = new_weight + adaptive_beam
+                                if new_weight + adaptive_beam < next_weight_cutoff:  # make the next_weight_cutoff tighter
+                                    next_weight_cutoff = new_weight + adaptive_beam
 
-                            if arc.nextstate in self.cur_toks:
-                                if self.cur_toks[arc.nextstate].cost > new_tok.cost:
-                                    delete_token(self.cur_toks[arc.nextstate])
-                                    self.cur_toks[arc.nextstate] = new_tok
+                                if arc.nextstate in self.cur_toks:
+                                    self.cur_toks[arc.nextstate].add(new_tok)
                                 else:
-                                    delete_token(new_tok)
-                            else:
-                                self.cur_toks[arc.nextstate] = new_tok
-            delete_token(self.prev_toks[state])
+                                    self.cur_toks[arc.nextstate] = {new_tok}
+                delete_token(tok)
         self.prev_toks = {}
         self.num_frames_decoded += 1
         return next_weight_cutoff
@@ -240,27 +238,24 @@ class WFSTDecoder:
         queue = list(self.cur_toks.keys())
         while queue:
             state = queue.pop()
-            tok = self.cur_toks[state]
-            if tok.cost > cutoff:
-                continue
-            for arc in self.fst.arcs(state):
-                if arc.ilabel == 0:
-                    new_prefix = tok.prefix + (arc.olabel,) if arc.olabel != 0 else tok.prefix
-                    new_tok = Token(arc, 0.0, tok, new_prefix)
-                    if new_tok.cost > cutoff:
-                        delete_token(new_tok)
-                    else:
-                        if arc.nextstate in self.cur_toks.keys():
-                            # update the token for that state
-                            if self.cur_toks[arc.nextstate].cost > new_tok.cost:
-                                delete_token(self.cur_toks[arc.nextstate])
-                                self.cur_toks[arc.nextstate] = new_tok
+            toks = self.cur_toks[state]
+            for tok in toks:
+                if tok.cost > cutoff:
+                    continue
+                for arc in self.fst.arcs(state):
+                    if arc.ilabel == 0:
+                        new_prefix = tok.prefix + (arc.olabel,) if arc.olabel != 0 else tok.prefix
+                        new_tok = Token(arc, 0.0, new_prefix, tok)
+                        if new_tok.cost > cutoff:
+                            delete_token(new_tok)
+                        else:
+                            if arc.nextstate in self.cur_toks.keys():
+                                # update the token for that state
+                                self.cur_toks[arc.nextstate].add(new_tok)
                                 queue.append(arc.nextstate)
-                            else:
-                                delete_token(new_tok)
-                        else:  # Add a new state in self.cur_toks
-                            self.cur_toks[arc.nextstate] = new_tok
-                            queue.append(arc.nextstate)
+                            else:  # Add a new state in self.cur_toks
+                                self.cur_toks[arc.nextstate] = {new_tok}
+                                queue.append(arc.nextstate)
 
                     # if new_tok.cost < cutoff:
                         # if arc.nextstate in self.cur_toks.keys():
@@ -287,25 +282,27 @@ class WFSTDecoder:
         """
         best_cost = float('inf')
         best_token = None
-        tok_count = len(self.prev_toks)
+        tok_count = len(self.get_all_prev_toks())
 
         if (self.max_active == sys.maxsize
                 and self.min_active == 0):
-            for _, tok in self.prev_toks.items():
-                if tok.cost < best_cost:
-                    best_cost = tok.cost
-                    best_token = tok
-                adaptive_beam = self.beam
-                beam_cutoff = best_cost + self.beam
+            for _, toks in self.prev_toks.items():
+                for tok in toks:
+                    if tok.cost < best_cost:
+                        best_cost = tok.cost
+                        best_token = tok
+                    adaptive_beam = self.beam
+                    beam_cutoff = best_cost + self.beam
             return beam_cutoff, adaptive_beam, best_token, tok_count
         else:
             tmp_array = []
-            for _, tok in self.prev_toks.items():
-                tmp_array.append(tok.cost)
-                if tok.cost < best_cost:
-                    best_cost = tok.cost
-                    best_token = tok
-            tok_count = len(self.prev_toks)
+            for _, toks in self.prev_toks.items():
+                for tok in toks:
+                    tmp_array.append(tok.cost)
+                    if tok.cost < best_cost:
+                        best_cost = tok.cost
+                        best_token = tok
+            tok_count = len(self.get_all_prev_toks())
             beam_cutoff = best_cost + self.beam
             min_active_cutoff = float('inf')
             max_active_cutoff = float('inf')
@@ -353,13 +350,14 @@ class WFSTDecoder:
         if not is_final:
             logging.warn('Has not reached to any final state. Please check!')
             best_token = None
-            prefix2cost = dict()
-            for state, tok in self.cur_toks.items():
-                if tok.prefix not in prefix2cost:
-                    prefix2cost[tok.prefix] = [tok.cost, 1]
-                else:
-                    prefix2cost[tok.prefix] = [-np.logaddexp(-prefix2cost[tok.prefix][0], -tok.cost), prefix2cost[tok.prefix][1]+1]
-                    logging.info('Merging tokens for prefix ' + str(tok.prefix))
+            prefix2cost= dict()
+            for state, toks in self.cur_toks.items():
+                for tok in toks:
+                    if tok.prefix not in prefix2cost:
+                        prefix2cost[tok.prefix] = [tok.cost, 1]
+                    else:
+                        prefix2cost[tok.prefix] = [-np.logaddexp(-prefix2cost[tok.prefix][0], -tok.cost), prefix2cost[tok.prefix][1]+1]
+                        logging.info('Merging tokens for prefix ' + str(tok.prefix))
             prefix_and_score = sorted(list(prefix2cost.items()), key=lambda x:x[1][0])
             num_active_tokens = len(self.cur_toks)
             num_active_prefixes = len(prefix_and_score)
@@ -372,15 +370,16 @@ class WFSTDecoder:
             best_token = None
             prefix2cost = dict()
             # print('Iterating over self.cur_toks.items(), ', len(self.cur_toks))
-            for state, tok in self.cur_toks.items():
-                # print('Checking state', state)
-                this_cost = tok.cost + float(self.fst.final(state))
+            for state, toks in self.cur_toks.items():
+                for tok in toks:
+                    # print('Checking state', state)
+                    this_cost = tok.cost + float(self.fst.final(state))
 
-                if tok.prefix not in prefix2cost:
-                    prefix2cost[tok.prefix] = [this_cost, 1]
-                else:
-                    prefix2cost[tok.prefix] = [-np.logaddexp(-prefix2cost[tok.prefix][0], -tok.cost), prefix2cost[tok.prefix][1]+1]
-                    logging.info('Merging tokens for prefix ' + str(tok.prefix))
+                    if tok.prefix not in prefix2cost:
+                        prefix2cost[tok.prefix] = [this_cost, 1]
+                    else:
+                        prefix2cost[tok.prefix] = [-np.logaddexp(-prefix2cost[tok.prefix][0], -tok.cost), prefix2cost[tok.prefix][1]+1]
+                        logging.info('Merging tokens for prefix ' + str(tok.prefix))
             prefix_and_score = sorted(list(prefix2cost.items()), key=lambda x:x[1])
             num_active_tokens = len(self.cur_toks)
             num_active_prefixes = len(prefix_and_score)
@@ -408,3 +407,15 @@ class WFSTDecoder:
             tok = tok.prev_tok
 
         return wordid_result
+
+    def get_all_cur_toks(self):
+        all_cur_toks = set()
+        for _, toks in self.cur_toks.items():
+            all_cur_toks.update(toks)
+        return all_cur_toks
+
+    def get_all_prev_toks(self):
+        all_prev_toks = set()
+        for _, toks in self.prev_toks.items():
+            all_prev_toks.update(toks)
+        return all_prev_toks
