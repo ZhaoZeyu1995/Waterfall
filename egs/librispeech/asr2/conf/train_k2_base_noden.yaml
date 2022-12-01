@@ -27,3 +27,6 @@ model: WAV2VEC2_BASE
 finetune_layers: 2
 same_optimiser_for_finetuning: true
 encoder_output_size: 768
+
+# training
+no_den: true
