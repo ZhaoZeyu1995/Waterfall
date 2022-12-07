@@ -28,14 +28,11 @@ for entry in fread.readlines():
     else:
         print(str(0) + ' ' + str(nodeX) + ' ' + phone+'_0' + ' ' + phone) 
         print(str(nodeX) + ' ' + str(0) + ' ' + phone+'_1' + ' <eps>') 
-        print(str(nodeX) + ' ' + str(nodeX+1) + ' ' + phone+'_0' + ' <eps>') 
-        print(str(nodeX) + ' ' + str(nodeX+2) + ' ' + phone+'_1' + ' <eps>') 
-        print(str(nodeX+1) + ' ' + str(nodeX+1) + ' ' + phone+'_0' + ' <eps>') 
-        print(str(nodeX+1) + ' ' + str(nodeX+2) + ' ' + phone+'_1' + ' <eps>') 
+        print(str(nodeX) + ' ' + str(nodeX) + ' ' + phone+'_0' + ' <eps>') 
+        print(str(nodeX) + ' ' + str(nodeX+1) + ' ' + phone+'_1' + ' <eps>') 
+        print(str(nodeX+1) + ' ' + str(nodeX+1) + ' ' + phone+'_1' + ' <eps>') 
         print(str(nodeX+1) + ' ' + str(0) + ' ' + phone+'_1' + ' <eps>') 
-        print(str(nodeX+2) + ' ' + str(nodeX+2) + ' ' + phone+'_1' + ' <eps>') 
-        print(str(nodeX+2) + ' ' + str(0) + ' ' + phone+'_1' + ' <eps>') 
-    nodeX += 3
+    nodeX += 2
 
 print('0')
 
