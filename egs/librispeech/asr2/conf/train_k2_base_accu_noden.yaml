@@ -1,0 +1,31 @@
+# loss_func
+loss: k2
+output_beam: 20
+# batch
+batch_size: 1
+# data pipeline
+num_workers: 12
+# multi-gpu training
+strategy: ddp
+# optimiser
+#optimiser: adam
+lr: 1e-5
+factor: 0.1
+lr_patience: 0
+# random seed
+seed: 777
+# early_stopping
+early_stopping: true
+patience: 4
+# for debugging
+max_steps: -1
+max_epochs: 1000
+
+# fine-tuning
+
+model: WAV2VEC2_BASE
+finetune_layers: 2
+same_optimiser_for_finetuning: true
+encoder_output_size: 768
+accumulate_grad_batches: 12
+no_den: true
