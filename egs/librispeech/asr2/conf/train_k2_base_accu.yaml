@@ -11,12 +11,12 @@ strategy: ddp
 #optimiser: adam
 lr: 1e-5
 factor: 0.1
-lr_patience: 2
+lr_patience: 0
 # random seed
 seed: 777
 # early_stopping
 early_stopping: true
-patience: 8
+patience: 4
 # for debugging
 max_steps: -1
 max_epochs: 1000
