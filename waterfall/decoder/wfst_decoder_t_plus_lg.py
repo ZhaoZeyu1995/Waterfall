@@ -154,12 +154,12 @@ class WFSTDecoder:
             self.cur_toks = {}
             # print('process_emitting...')
             weight_cutoff = self.process_emitting()
-            logging.info('After emitting For frame %d, there are %d tokens, and %d (state_lg, state_t) tuples' %
-            (self.num_frames_decoded, len(self.cur_toks), get_num_state_tuple(self.cur_toks)))  # This is for debugging only
+            # logging.info('After emitting For frame %d, there are %d tokens, and %d (state_lg, state_t) tuples' %
+            # (self.num_frames_decoded, len(self.cur_toks), get_num_state_tuple(self.cur_toks)))  # This is for debugging only
             # print('process_nonemitting...')
             self.process_nonemitting(weight_cutoff)
-            logging.info('After nonemitting For frame %d, there are %d tokens, and %d (state_lg, state_t) tuples' %
-            (self.num_frames_decoded, len(self.cur_toks), get_num_state_tuple(self.cur_toks)))  # This is for debugging only
+            # logging.info('After nonemitting For frame %d, there are %d tokens, and %d (state_lg, state_t) tuples' %
+            # (self.num_frames_decoded, len(self.cur_toks), get_num_state_tuple(self.cur_toks)))  # This is for debugging only
 
     def init_decoding(self):
         """Init decoding states for every input utterance
@@ -277,15 +277,19 @@ class WFSTDecoder:
                         ac_cost = self.log_likelihood_scaled[frame, int(arc_t.ilabel)]
                         if arc_t.olabel == 0:  # we only update T state in this case with a dummy_arc (here it is arc_lg)
                             # print('Found arc_t.olabel == 0')
-                            logging.info('Found arc_t.olabel == 0')
-                            arc_lg = LatticeArc(0, 0, 0.0, state_lg)
-                            if (tok, arc_lg) in tok_arc_lg2ac_cost.keys():
-                                logging.info('Adding a new state_t')
-                                tok_arc_lg2ac_cost[(tok, arc_lg)] = -np.logaddexp(-tok_arc_lg2ac_cost[(tok, arc_lg)], -ac_cost)
-                                tok_arc_lg2states_t[(tok, arc_lg)].add(state_t)
+                            # logging.info('Found arc_t.olabel == 0')
+                            # arc_lg = LatticeArc(0, 0, 0.0, state_lg)
+                            # another_arc_lg = LatticeArc(0, 0, 0.0, state_lg)
+                            # logging.info(str(type(state_lg)))
+                            # if state_lg == state_lg:
+                                # logging.info('The assumption is true!')
+                            if (tok, state_lg) in tok_arc_lg2ac_cost.keys():
+                                # logging.info('Adding a new state_t')
+                                tok_arc_lg2ac_cost[(tok, state_lg)] = -np.logaddexp(-tok_arc_lg2ac_cost[(tok, state_lg)], -ac_cost)
+                                tok_arc_lg2states_t[(tok, state_lg)].add(arc_t.nextstate)
                             else:
-                                tok_arc_lg2ac_cost[(tok, arc_lg)] = ac_cost
-                                tok_arc_lg2states_t[(tok, arc_lg)] = {state_t}
+                                tok_arc_lg2ac_cost[(tok, state_lg)] = ac_cost
+                                tok_arc_lg2states_t[(tok, state_lg)] = {arc_t.nextstate}
 
                         else:  # we need to check if we need to up state LG state as well, when arc_lg.ilabel == arc_t.olabel
                             # print('Found act_t.olabel != 0', arc_t.olabel)
@@ -293,12 +297,12 @@ class WFSTDecoder:
                                 # print('arc_lg.ilabel', arc_lg.ilabel)
                                 if arc_t.olabel == arc_lg.ilabel:
                                     if (tok, arc_lg) in tok_arc_lg2ac_cost.keys():
-                                        logging.info('Adding a new state_t')
+                                        # logging.info('Adding a new state_t')
                                         tok_arc_lg2ac_cost[(tok, arc_lg)] = -np.logaddexp(-tok_arc_lg2ac_cost[(tok, arc_lg)], -ac_cost)
-                                        tok_arc_lg2states_t[(tok, arc_lg)].add(state_t)
+                                        tok_arc_lg2states_t[(tok, arc_lg)].add(arc_t.nextstate)
                                     else:
                                         tok_arc_lg2ac_cost[(tok, arc_lg)] = ac_cost
-                                        tok_arc_lg2states_t[(tok, arc_lg)] = {state_t}
+                                        tok_arc_lg2states_t[(tok, arc_lg)] = {arc_t.nextstate}
                                     # print('processing the arc', arc, 'for the state', state)
                                     # print('arc.ilabel', arc.ilabel)
                                     # print('Got the log_likelihood for ', arc.ilabel)
@@ -307,9 +311,15 @@ class WFSTDecoder:
 
         # Process the accum_toks to keep only one best token for each state_lg
         for (tok, arc_lg) in tok_arc_lg2ac_cost.keys():
-            acoustic_cost = tok_arc_lg2ac_cost[(tok, arc_lg)]
+            if isinstance(arc_lg, int):
+                state_lg_old = arc_lg
+                arc_lg = LatticeArc(0, 0, 0.0, state_lg_old)
+                key_lg = state_lg_old
+            else:
+                key_lg = arc_lg
+            acoustic_cost = tok_arc_lg2ac_cost[(tok, key_lg)]
             state_lg = arc_lg.nextstate
-            t_states = tok_arc_lg2states_t[(tok, arc_lg)]
+            t_states = tok_arc_lg2states_t[(tok, key_lg)]
             # logging.info('t_states: ' + str(t_states))
             new_tok = Token(arc_lg, acoustic_cost, t_states, tok)
             if new_tok.cost > next_weight_cutoff:
