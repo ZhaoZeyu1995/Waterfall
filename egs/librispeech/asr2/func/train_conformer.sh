@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Training the wav2vec 2 model with the given configuration file
-# e.g train.sh --train_config conf/train.yaml --expname ctc --gpus 4 data/train data/dev data/lang
+# Train the conformer model with the given configuration file
+# e.g train_conformer.sh --train_config conf/train.yaml --expname ctc --gpus 4 data/train data/dev data/lang
 
 . ./path.sh
 . ./cmd.sh
@@ -12,6 +12,7 @@ expname=ctc
 gpus=4
 checkpoint=
 load_weights_only=
+batch_size=0
 
 . utils/parse_options.sh || exit 1
 
@@ -31,11 +32,11 @@ lang_dir=$3
 
 
 if [ -z $checkpoint ]; then
-    train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus
+    train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --batch_size $batch_size
 else
     if [ $load_weights_only ]; then
-        train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --checkpoint $checkpoint --load_weights_only true
+        train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --checkpoint $checkpoint --load_weights_only true --batch_size $batch_size
     else
-        train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --checkpoint $checkpoint
+        train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --checkpoint $checkpoint --batch_size $batch_size
     fi
 fi

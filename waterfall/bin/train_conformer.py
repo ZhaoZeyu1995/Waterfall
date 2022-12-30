@@ -21,6 +21,8 @@ def main(args):
     cfg = yaml.load(open(args.config), Loader=yaml.loader.SafeLoader)
     pl.seed_everything(cfg['seed'], workers=True)
 
+    batch_size = cfg['batch_size'] if args.batch_size == 0 else args.batch_size
+
     if cfg['spec_aug']:
         spec_aug = SpecAugment(resize_mode=cfg['mode'],
                                max_time_warp=cfg['max_time_warp'],
@@ -55,13 +57,13 @@ def main(args):
                            args.lang_dir)
 
     train_gen = DataLoader(train_data,
-                           batch_size=cfg['batch_size'],
+                           batch_size=batch_size,
                            shuffle=True,
                            num_workers=cfg['num_workers'],
                            persistent_workers=True,
                            collate_fn=collate_fn)
     dev_gen = DataLoader(dev_data,
-                         batch_size=cfg['batch_size'],
+                         batch_size=batch_size,
                          shuffle=False,
                          num_workers=cfg['num_workers'],
                          persistent_workers=True,
@@ -152,6 +154,7 @@ if __name__ == '__main__':
         '--checkpoint', help='Resume from checkpoint.', type=str, default=None)
     parser.add_argument('--load_weights_only',
                         help='Whether or not load weights only from checkpoint.', type=bool, default=False)
+    parser.add_argument('--batch_size', help='The batch_size for training.', type=int, default=0)
 
     args = parser.parse_args()
     main(args)
