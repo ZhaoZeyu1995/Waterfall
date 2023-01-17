@@ -15,6 +15,7 @@ from waterfall import conformer
 from waterfall.utils import datapipe, datapipe_manual_ctc, datapipe_k2
 from waterfall.manual_ctc import eta_scheduler
 from waterfall.utils.specaug import SpecAugment
+import wandb
 
 
 def main(args):
@@ -76,12 +77,19 @@ def main(args):
         model = conformer.ConformerModel(
             cfg['idim'], train_data.lang.num_nn_output, cfg=cfg, lang_dir=args.lang_dir)
 
-    callbacks = [pl.callbacks.ModelCheckpoint(monitor='valid_loss',
-                                              save_top_k=5 if 'save_top_k' not in cfg.keys(
-                                              ) else cfg['save_top_k'],
-                                              every_n_epochs=1,
-                                              filename='{epoch}-{valid_loss:.3f}',
-                                              mode='min')]
+    os.makedirs('exp/%s' % (args.name), exist_ok=True)
+    model_checkpoint = pl.callbacks.ModelCheckpoint(monitor='valid_loss',
+                                                    save_top_k=1 if 'save_top_k' not in cfg.keys(
+                                                    ) else cfg['save_top_k'],
+                                                    every_n_epochs=1,
+                                                    dirpath='exp/%s/checkpoints' % (
+                                                        args.name),
+                                                    filename='{epoch}-{valid_loss:.3f}',
+                                                    mode='min')
+
+    callbacks = [model_checkpoint,
+                 pl.callbacks.RichProgressBar(),
+                 pl.callbacks.RichModelSummary(max_depth=2)]
 
     if cfg['early_stopping']:
         callbacks.append(pl.callbacks.EarlyStopping(monitor='valid_loss',
@@ -98,6 +106,11 @@ def main(args):
 
     accumulate_grad_batches = 1 if 'accumulate_grad_batches' not in cfg.keys(
     ) else cfg['accumulate_grad_batches']
+
+    logger = pl.loggers.WandbLogger(
+        project=args.name, save_dir='exp/%s' % (args.name))
+    logger.watch(model, log='all')
+
     if args.checkpoint:
         if not args.load_weights_only:
             trainer = pl.Trainer(gpus=args.gpus,
@@ -105,8 +118,7 @@ def main(args):
                                  deterministic=False,
                                  resume_from_checkpoint=args.checkpoint,
                                  max_epochs=cfg['max_epochs'],
-                                 logger=pl.loggers.TensorBoardLogger(
-                                     'exp', name=args.name),
+                                 logger=logger,
                                  accumulate_grad_batches=accumulate_grad_batches,
                                  gradient_clip_val=cfg['grad-clip'],
                                  gradient_clip_algorithm='norm',
@@ -117,8 +129,7 @@ def main(args):
                                  strategy=cfg['strategy'],
                                  deterministic=False,
                                  max_epochs=cfg['max_epochs'],
-                                 logger=pl.loggers.TensorBoardLogger(
-                                     'exp', name=args.name),
+                                 logger=logger,
                                  accumulate_grad_batches=accumulate_grad_batches,
                                  gradient_clip_val=cfg['grad-clip'],
                                  gradient_clip_algorithm='norm',
@@ -128,14 +139,18 @@ def main(args):
                              strategy=cfg['strategy'],
                              deterministic=False,
                              max_epochs=cfg['max_epochs'],
-                             logger=pl.loggers.TensorBoardLogger(
-                                 'exp', name=args.name),
+                             logger=logger,
                              accumulate_grad_batches=accumulate_grad_batches,
                              gradient_clip_val=cfg['grad-clip'],
                              gradient_clip_algorithm='norm',
                              callbacks=callbacks)
 
     trainer.fit(model, train_gen, dev_gen)
+
+    logger.log_metrics({'best_model_path': os.path.join(os.getcwd(), model_checkpoint.best_model_path),
+                        'best_model_loss': model_checkpoint.best_model_score.item()})
+
+    wandb.finish()
 
 
 if __name__ == '__main__':
@@ -154,7 +169,8 @@ if __name__ == '__main__':
         '--checkpoint', help='Resume from checkpoint.', type=str, default=None)
     parser.add_argument('--load_weights_only',
                         help='Whether or not load weights only from checkpoint.', type=bool, default=False)
-    parser.add_argument('--batch_size', help='The batch_size for training.', type=int, default=0)
+    parser.add_argument(
+        '--batch_size', help='The batch_size for training.', type=int, default=0)
 
     args = parser.parse_args()
     main(args)
