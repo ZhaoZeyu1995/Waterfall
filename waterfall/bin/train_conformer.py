@@ -95,7 +95,7 @@ def main(args):
         callbacks.append(pl.callbacks.EarlyStopping(monitor='valid_loss',
                                                     mode='min',
                                                     patience=cfg['patience'],
-                                                    verbose=True))
+                                                    verbose=False))
 
     if 'auto_eta_scheduler' in cfg.keys() and cfg['auto_eta_scheduler']:
         callbacks.append(eta_scheduler.AutoEtaScheduler('valid_loss',
