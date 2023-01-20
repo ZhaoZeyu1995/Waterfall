@@ -104,8 +104,11 @@ def main(args):
                                                         patience=cfg['patience_eta'],
                                                         verbose=True))
 
-    accumulate_grad_batches = 1 if 'accumulate_grad_batches' not in cfg.keys(
-    ) else cfg['accumulate_grad_batches']
+    accumulate_grad_batches = 1 # by default 1, args.accumulate_grad_batches has more priority than cfg['accumulate_grad_batches']
+    if args.accumulate_grad_batches != 1:
+        accumulate_grad_batches = args.accumulate_grad_batches
+    elif 'accumulate_grad_batches' in cfg.keys():
+        accumulate_grad_batches = cfg['accumulate_grad_batches']
 
     logger = pl.loggers.WandbLogger(
         project=args.name, save_dir='exp/%s' % (args.name))
@@ -171,6 +174,8 @@ if __name__ == '__main__':
                         help='Whether or not load weights only from checkpoint.', type=bool, default=False)
     parser.add_argument(
         '--batch_size', help='The batch_size for training.', type=int, default=0)
+    parser.add_argument(
+        '--accumulate_grad_batches', help='The number of batches for gradient accumulation.', type=int, default=1)
 
     args = parser.parse_args()
     main(args)
