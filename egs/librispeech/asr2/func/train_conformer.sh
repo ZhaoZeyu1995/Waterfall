@@ -3,8 +3,9 @@
 # Train the conformer model with the given configuration file
 # e.g train_conformer.sh --train_config conf/train.yaml --expname ctc --gpus 4 data/train data/dev data/lang
 
-. ./path.sh
-. ./cmd.sh
+. ./path.sh || exit 1
+. ./env.sh || exit 1
+. ./cmd.sh || exit 1
 
 
 train_config="conf/train_k2_conformer.yaml"

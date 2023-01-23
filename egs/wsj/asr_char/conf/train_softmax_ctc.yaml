@@ -1,0 +1,32 @@
+# loss_func
+loss: ctc_softmax
+init_eta: 1.05
+# batch
+batch_size: 10
+# data pipeline
+num_workers: 12
+# multi-gpu training
+strategy: ddp
+# optimiser
+#optimiser: adam
+#learning_rate: 1e-3
+#factor: 0.2
+#eps: 1e-8
+#weight_decay: 0.
+#lr_patience: 2
+# random seed
+seed: 777
+# early_stopping
+early_stopping: true
+patience: 4
+# for debugging
+max_steps: -1
+max_epochs: 1000
+
+# fine-tuning
+
+model: WAV2VEC2_BASE
+encoder_output_size: 768
+finetune_layers: 2
+same_optimiser_for_finetuning: true
+
