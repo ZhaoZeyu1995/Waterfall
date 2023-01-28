@@ -27,12 +27,12 @@ max_epochs: 1000
 
 accumulate_grad_batches: 8
 idim: 83
-adim: 256
-aheads: 4
+adim: 384
+aheads: 6
 dlayers: 6
 dropout-rate: 0.1
 dunits: 2048
-elayers: 12
+elayers: 10
 eunits: 2048
 grad-clip: 5
 transformer-attn-dropout-rate: 0.0
