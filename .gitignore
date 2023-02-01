@@ -14,6 +14,7 @@ egs/*/*/exp
 egs/*/*/any_run.sh
 egs/*/*/fbank
 egs/*/*/sbatch.*
+egs/*/*/*.sbatch
 egs/*/*/wandb
 
 tools/kaldi
