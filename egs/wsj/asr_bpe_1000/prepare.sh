@@ -99,8 +99,6 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     local/wsj_format_local_lms.sh --lang-suffix "_bpe"
 fi
 
-#feat_tr_dir=data/${train_set}/dump/delta${do_delta}; mkdir -p ${feat_tr_dir}
-#feat_dt_dir=data/${train_dev}/dump/delta${do_delta}; mkdir -p ${feat_dt_dir}
 fbankdir=fbank
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
