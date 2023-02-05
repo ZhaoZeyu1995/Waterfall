@@ -854,28 +854,18 @@ class ConformerModel(pl.LightningModule):
             break
         self.log('lr', lr, sync_dist=True)
 
-        # if (self.trainer.global_step + 1) <= self.cfg['transformer-warmup-steps']:
-        # lr = (
-        # self.cfg['transformer-lr']
-        # * self.cfg['adim'] ** (-0.5)
-        # * min((self.trainer.global_step+1) ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
-        # )
-
-        # lr = (
-        # self.cfg['transformer-lr']
-        # * self.cfg['adim'] ** (-0.5)
-        # * min(self.cfg['transformer-warmup-steps'] ** (-0.5), (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1.5))
-        # )
-        # lr = (
-            # float(self.cfg['final_lr'])
-            # * min((self.trainer.global_step+1) ** (-1) * self.cfg['transformer-warmup-steps'],
-                  # (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
-        # )
-        lr = (
-            float(self.cfg['final_lr'])
-            * min(1.,
-                  (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
-        )
+        if 'reduce_lr_after_maximum' in self.cfg.keys() and self.cfg['reduce_lr_after_maximum']:
+            lr = (
+                float(self.cfg['final_lr'])
+                * min((self.trainer.global_step+1) ** (-0.5) * self.cfg['transformer-warmup-steps'] ** (-0.5),
+                      (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
+            )
+        else:
+            lr = (
+                float(self.cfg['final_lr'])
+                * min(1.,
+                      (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
+            )
 
         for pg in optimizer.param_groups:
             pg["lr"] = lr
