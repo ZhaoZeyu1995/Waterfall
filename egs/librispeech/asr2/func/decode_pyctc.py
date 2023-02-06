@@ -10,10 +10,10 @@ from waterfall.decoder import pyctcdecode
 
 
 def main(args):
-    word_symbol_table = args.word_symbol_table
-    words = []
-    if word_symbol_table:
-        with open(word_symbol_table) as f:
+    words = None
+    if args.word_symbol_table:
+        words = []
+        with open(args.word_symbol_table) as f:
             for line in f:
                 word = line.strip().split()[0]
                 if word != "<eps>":
@@ -23,11 +23,7 @@ def main(args):
     with open(args.tokens) as f:
         for line in f:
             token = line.strip().split()[0]
-
-            if token == '<blk>':
-                tokens.append("")
-            else:
-                tokens.append(token)
+            tokens.append(token)
 
     loglikeli_scp = args.log_likelihood
 
@@ -75,7 +71,7 @@ if __name__ == "__main__":
         '--token_min_logp', help='Tokens below this logp are skipped unless they are argmax of frame', type=float, default=-5.0)
 
     parser.add_argument('--word_symbol_table',
-                        help='The path of the word symbol table, by which the output label ids can be translated into words', type=str, default='data/lang_bpe/words.txt')
+                        help='The path of the word symbol table, by which the output label ids can be translated into words', type=str, default=None)
 
     args = parser.parse_args()
 

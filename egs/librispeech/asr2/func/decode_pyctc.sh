@@ -1,6 +1,7 @@
 #!/bin/bash 
 
 . ./path.sh
+. ./env.sh
 . ./cmd.sh
 
 # Decoding with FST-based decoder
@@ -13,7 +14,7 @@ beta="1.5"
 beam_width='50'
 beam_prune_logp="-10"
 token_min_logp="-5"
-lm=data/local/lm/lm_tgsmall.arpa
+lm=data/local/nist_lm/lm_tg.arpa
 
 . ./utils/parse_options.sh
 
@@ -41,13 +42,9 @@ if [ ! -d $predict_dir/split$nj ]; then
     fi
 fi
 
-
-acwt=$acoustic_scale
-maxac=$max_active
-
 decode_dir=$predict_dir/alpha_${alpha}-beta_${beta}-beam_width_${beam_width}-beam_prune_${beam_prune_logp}-token_min_logp_${token_min_logp}
 mkdir -p $decode_dir
-run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_pyctc.JOB.log func/decode_pyctc.py --alpha $alpha --beta $beta --beam_width $beam_width --beam_prune_logp ${beam_prune_logp} --token_min_logp ${token_min_logp} --lm $lm $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd $lang_dir/decode/tokens.txt 
+run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_pyctc.JOB.log func/decode_pyctc.py --alpha $alpha --beta $beta --beam_width $beam_width --beam_prune_logp ${beam_prune_logp} --token_min_logp ${token_min_logp} --lm $lm --word_symbol_table ${lang_dir}/words.txt $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd $lang_dir/k2/tokens.txt 
 
 for i in $(seq $nj); do
     cat $decode_dir/split$nj/hyp.$i.wrd || exit 1;

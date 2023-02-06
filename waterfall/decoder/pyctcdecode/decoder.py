@@ -394,13 +394,13 @@ class BeamSearchDecoderCTC:
                     logit_score,
                 ) in beams:
                     # if only blank token or same token
-                    if char == "" or last_char == char:
-                        if char == "":
+                    if char == "<blk>" or last_char == char:
+                        if char == "<blk>":
                             new_end_frame = part_frames[0]
                         else:
                             new_end_frame = frame_idx + 1
                         new_part_frames = (
-                            part_frames if char == "" else (part_frames[0], new_end_frame)
+                            part_frames if char == "<blk>" else (part_frames[0], new_end_frame)
                         )
                         new_beams.append(
                             (
@@ -438,7 +438,7 @@ class BeamSearchDecoderCTC:
                             )
                         )
                     # if not bpe and space char
-                    elif not self._is_bpe and char == " ":
+                    elif not self._is_bpe and char == "<space>":
                         new_frame_list = (
                             text_frames if word_part == "" else text_frames + [part_frames]
                         )
@@ -1078,9 +1078,6 @@ class BeamSearchDecoder2StateBlk:
             # print('frame_idx', frame_idx)
             max_idx = logit_col.argmax()
             idx_list = set(np.where(logit_col >= token_min_logp)[0]) | {max_idx}
-
-
-            new_beams: List[Beam] = []
             for idx_char in idx_list:
                 p_char = logit_col[idx_char]
                 char = self._idx2vocab[idx_char]
