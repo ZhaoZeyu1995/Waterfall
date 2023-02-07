@@ -25,12 +25,11 @@ cat $data_dir/text | cut -f 2- -d " " > $local_dir/input.txt
 (cat $local_dir/input.txt | tr ' ' '\n' | sort | uniq ; cat $dataset_vocab | awk '{print $1}'| grep -v "<eps>\|<s>\|</s>\|\#") | sort | uniq > $local_dir/words.txt
 
 spm_train --input=$local_dir/input.txt --vocab_size=${nbpe} --model_type=${bpemode} --model_prefix=${bpemodel} --input_sentence_size=100000000
-spm_encode --model=${bpemodel}.model --output_format=piece < $local_dir/words.txt | tr ' ' '\n' | grep -v "_" | sort | uniq > $local_dir/nonsilence_phones.txt
+spm_encode --model=${bpemodel}.model --output_format=piece < $local_dir/words.txt | tr ' ' '\n' | sort | uniq > $local_dir/nonsilence_phones.txt
 spm_encode --model=${bpemodel}.model --output_format=piece < $local_dir/words.txt > $local_dir/lexicon_encoded
 
-echo "_" > $local_dir/optional_silence.txt
-(echo "_"; echo "<unk>") > $local_dir/silence_phones.txt
+echo "<SIL>" > $local_dir/optional_silence.txt
+echo "<SIL>" > $local_dir/silence_phones.txt
 
-echo "<UNK> <unk>" > $local_dir/lexicon.txt
-echo "<SIL> _" >> $local_dir/lexicon.txt
+echo "<SIL> <SIL>" > $local_dir/lexicon.txt
 paste $local_dir/words.txt $local_dir/lexicon_encoded | awk -F'\t' '{print $1 " " $2}' >> $local_dir/lexicon.txt

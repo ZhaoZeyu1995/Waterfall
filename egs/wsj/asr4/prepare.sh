@@ -4,6 +4,7 @@
 #  Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
 
 . ./path.sh || exit 1;
+. ./env.sh || exit 1;
 . ./cmd.sh || exit 1;
 
 # general configuration
@@ -17,12 +18,11 @@ wsj0=/group/corporapublic/wsj/wsj0
 wsj1=/group/corporapublic/wsj/wsj1
 corpus=/group/corporapublic/wsj
 
-#topos="ctc mmictc 2state 2state_blk mmictc_blk"
-topos="ctc 2state_blk mmictc_blk"
+topos="ctc mmictc 2state 2state_blk mmictc_blk"
 #lm_suffixes="test_bg test_bg_5k test_tg test_tg_5k test_tgpr test_tgpr_5k test_bd_fg test_bd_fgpr test_bd_tg test_bd_tgpr"
-lm_suffixes="test_bg test_tg test_bd_fg test_bd_tg"
+lm_suffixes="test_tg test_bd_tg test_bd_fg"
 
-nbpe=500
+nbpe=5000
 bpemode=unigram
 
 
@@ -122,8 +122,6 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     for suffix in $lm_suffixes; do
         for topo in $topos; do
             prepare_graph.sh --type $topo data/lang_bpe_${nbpe}_${suffix} data/local/lang_bpe_${nbpe}_${suffix}_${topo}_tmp
-            mkdir -p data/lang_bpe_${nbpe}_${suffix}_${topo}/decode || exit 1;
-            k2todecode_tokens.py data/lang_bpe_${nbpe}_${suffix}_${topo}/k2/tokens.txt > data/lang_bpe_${nbpe}_${suffix}_${topo}/decode/tokens.txt || exit 1;
         done
     done
 fi

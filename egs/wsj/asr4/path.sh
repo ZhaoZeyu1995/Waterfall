@@ -7,7 +7,6 @@ export PATH=$PWD/utils/:$KALDI_ROOT/tools/openfst/bin/:$KALDI_ROOT/tools/sctk/bi
 export LC_ALL=C
 
 export PATH=$MAIN_ROOT/utils:$MAIN_ROOT/waterfall/bin:$MAIN_ROOT/waterfall/debug:$PATH
-. $CONDA_PREFIX/etc/profile.d/conda.sh && conda deactivate && conda activate $LOCAL_HOME/conda/k2
 export PYTHONPATH=$MAIN_ROOT:$PYTHONPATH
 
 export OMP_NUM_THREADS=1
