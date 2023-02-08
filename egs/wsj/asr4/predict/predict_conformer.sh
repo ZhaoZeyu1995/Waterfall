@@ -5,6 +5,7 @@
 
 
 . ./path.sh
+. ./env.sh
 . ./cmd.sh
 
 gpus=1
