@@ -857,7 +857,7 @@ class ConformerModel(pl.LightningModule):
         if 'reduce_lr_after_maximum' in self.cfg.keys() and self.cfg['reduce_lr_after_maximum']:
             lr = (
                 float(self.cfg['final_lr'])
-                * min((self.trainer.global_step+1) ** (-0.5) * self.cfg['transformer-warmup-steps'] ** (-0.5),
+                * min((self.trainer.global_step+1) ** (-0.5) * self.cfg['transformer-warmup-steps'] ** (0.5),
                       (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
             )
         else:
