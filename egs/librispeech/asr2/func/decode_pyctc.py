@@ -8,6 +8,11 @@ import numpy as np
 import scipy
 from waterfall.decoder import pyctcdecode
 
+def process_token(token):
+    if token == '<SIL>':
+        return ''
+    else:
+        return token
 
 def main(args):
     words = None
@@ -23,6 +28,7 @@ def main(args):
     with open(args.tokens) as f:
         for line in f:
             token = line.strip().split()[0]
+            token = process_token(token)
             tokens.append(token)
 
     loglikeli_scp = args.log_likelihood
