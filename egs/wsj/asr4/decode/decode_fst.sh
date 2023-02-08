@@ -1,6 +1,7 @@
 #!/bin/bash 
 
 . ./path.sh
+. ./env.sh
 . ./cmd.sh
 
 # Decoding with FST-based decoder
