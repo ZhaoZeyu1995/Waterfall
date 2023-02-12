@@ -9,8 +9,8 @@
 
 
 nj=10
-max_active="6000"
-acoustic_scale="6"
+max_active="2000"
+acoustic_scale="1.0"
 beams='16'
 decode_sets="test_dev93 test_eval92"
 lang_dir=data/lang_tg
