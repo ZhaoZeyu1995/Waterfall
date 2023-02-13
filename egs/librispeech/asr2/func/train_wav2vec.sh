@@ -4,6 +4,7 @@
 # e.g train_wav2vec.sh --train_config conf/train.yaml --expname ctc --gpus 4 data/train data/dev data/lang
 
 . ./path.sh
+. ./env.sh
 . ./cmd.sh
 
 

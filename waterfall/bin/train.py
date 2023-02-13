@@ -14,6 +14,7 @@ import logging
 from waterfall import models
 from waterfall.utils import datapipe, datapipe_manual_ctc, datapipe_k2
 from waterfall.manual_ctc import eta_scheduler
+import wandb
 
 
 def main(args):
@@ -59,12 +60,16 @@ def main(args):
     model = models.Wav2VecFineTuningDiverse(
         train_data.lang.num_nn_output, cfg=cfg, lang_dir=args.lang_dir)
 
-    callbacks = [pl.callbacks.ModelCheckpoint(monitor='valid_loss',
-                                              save_top_k=5 if 'save_top_k' not in cfg.keys(
+    os.makedirs('exp/%s' % (args.name), exist_ok=True)
+    model_checkpoint= pl.callbacks.ModelCheckpoint(monitor='valid_loss',
+                                              save_top_k=1 if 'save_top_k' not in cfg.keys(
                                               ) else cfg['save_top_k'],
                                               every_n_epochs=1,
                                               filename='{epoch}-{valid_loss:.3f}',
-                                              mode='min')]
+                                              mode='min')
+    callbacks = [model_checkpoint,
+                 pl.callbacks.RichProgressBar(),
+                 pl.callbacks.RichModelSummary(max_depth=2)]
 
     if cfg['early_stopping']:
         callbacks.append(pl.callbacks.EarlyStopping(monitor='valid_loss',
@@ -79,8 +84,16 @@ def main(args):
                                                         patience=cfg['patience_eta'],
                                                         verbose=True))
 
-    accumulate_grad_batches = 1 if 'accumulate_grad_batches' not in cfg.keys() else cfg['accumulate_grad_batches']
-    print('accumulate_grad_batches: ', accumulate_grad_batches)
+    accumulate_grad_batches = 1 # by default 1, args.accumulate_grad_batches has more priority than cfg['accumulate_grad_batches']
+    if args.accumulate_grad_batches != 1:
+        accumulate_grad_batches = args.accumulate_grad_batches
+    elif 'accumulate_grad_batches' in cfg.keys():
+        accumulate_grad_batches = cfg['accumulate_grad_batches']
+
+    logger = pl.loggers.WandbLogger(
+        project=args.name, save_dir='exp/%s' % (args.name))
+    logger.watch(model, log='all')
+
     if args.checkpoint:
         if not args.load_weights_only:
             trainer = pl.Trainer(gpus=args.gpus,
@@ -114,6 +127,10 @@ def main(args):
 
     trainer.fit(model, train_gen, dev_gen)
 
+    logger.log_metrics({'best_model_path': os.path.join(os.getcwd(), model_checkpoint.best_model_path),
+                        'best_model_loss': model_checkpoint.best_model_score.item()})
+    wandb.finish()
+
 
 if __name__ == '__main__':
 
@@ -132,6 +149,8 @@ if __name__ == '__main__':
     parser.add_argument('--load_weights_only',
                         help='Whether or not load weights only from checkpoint.', type=bool, default=False)
     parser.add_argument('--batch_size', help='The batch_size for training.', type=int, default=0)
+    parser.add_argument(
+        '--accumulate_grad_batches', help='The number of batches for gradient accumulation.', type=int, default=1)
 
     args = parser.parse_args()
     main(args)
