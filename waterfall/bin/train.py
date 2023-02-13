@@ -101,8 +101,7 @@ def main(args):
                                  deterministic=False,
                                  resume_from_checkpoint=args.checkpoint,
                                  max_epochs=cfg['max_epochs'],
-                                 logger=pl.loggers.TensorBoardLogger(
-                                     'exp', name=args.name),
+                                 logger=logger,
                                  accumulate_grad_batches=accumulate_grad_batches,
                                  callbacks=callbacks)
         else:
@@ -111,8 +110,7 @@ def main(args):
                                  strategy=cfg['strategy'],
                                  deterministic=False,
                                  max_epochs=cfg['max_epochs'],
-                                 logger=pl.loggers.TensorBoardLogger(
-                                     'exp', name=args.name),
+                                 logger=logger,
                                  accumulate_grad_batches=accumulate_grad_batches,
                                  callbacks=callbacks)
     else:
@@ -120,8 +118,7 @@ def main(args):
                              strategy=cfg['strategy'],
                              deterministic=False,
                              max_epochs=cfg['max_epochs'],
-                             logger=pl.loggers.TensorBoardLogger(
-                                 'exp', name=args.name),
+                             logger=logger,
                              accumulate_grad_batches=accumulate_grad_batches,
                              callbacks=callbacks)
 
