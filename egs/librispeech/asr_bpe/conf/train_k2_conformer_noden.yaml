@@ -2,14 +2,14 @@
 loss: k2
 output_beam: 20
 # batch
-batch_size: 4
+batch_size: 3
 # data pipeline
 num_workers: 4
 # multi-gpu training
 strategy: ddp
 # optimiser
 #optimiser: adam
-#learning_rate: 1e-3
+final_lr: 1e-4
 #factor: 0.2
 #eps: 1e-8
 #weight_decay: 0.
@@ -38,7 +38,7 @@ grad-clip: 5
 transformer-attn-dropout-rate: 0.0
 transformer-input-layer: conv2d
 transformer-length-normalized-loss: false
-transformer-lr: 0.08
+transformer-lr: 1.0
 transformer-warmup-steps: 25000
 transformer-encoder-activation-type: swish
 transformer-encoder-pos-enc-layer-type: rel_pos
@@ -59,4 +59,5 @@ inplace: true
 replace_with_zero: false
 
 # Training
-nowarmup: true
+no_den: true
+reduce_lr_after_maximu: true
