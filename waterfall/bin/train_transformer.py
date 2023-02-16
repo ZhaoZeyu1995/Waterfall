@@ -11,7 +11,7 @@ import yaml
 import random
 import numpy as np
 import logging
-from waterfall import conformer
+from waterfall import transformer
 from waterfall.utils import datapipe, datapipe_manual_ctc, datapipe_k2
 from waterfall.manual_ctc import eta_scheduler
 from waterfall.utils.specaug import SpecAugment
@@ -71,10 +71,10 @@ def main(args):
                          collate_fn=collate_fn)
 
     if 'nowarmup' in cfg and cfg['nowarmup']:
-        model = conformer.ConformerModelNoWarmup(
+        model = transformer.TransformerModelNoWarmup(
             cfg['idim'], train_data.lang.num_nn_output, cfg=cfg, lang_dir=args.lang_dir)
     else:
-        model = conformer.ConformerModel(
+        model = transformer.TransformerModel(
             cfg['idim'], train_data.lang.num_nn_output, cfg=cfg, lang_dir=args.lang_dir)
 
     os.makedirs('exp/%s' % (args.name), exist_ok=True)

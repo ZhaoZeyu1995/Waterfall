@@ -68,6 +68,7 @@ def main(args):
                                               filename='{epoch}-{valid_loss:.3f}',
                                               mode='min')
     callbacks = [model_checkpoint,
+                 pl.callbacks.LearningRateMonitor(logging_interval='step'),
                  pl.callbacks.RichProgressBar(),
                  pl.callbacks.RichModelSummary(max_depth=2)]
 
