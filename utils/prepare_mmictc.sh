@@ -17,7 +17,9 @@ lang=$1
 
 mkdir -p $lang/k2
 
-get_tokens_2state.py $lang/phones.txt | awk '{print $1 " " NR-1}' > $lang/tokens_disambig.txt
+(echo "<eps>"; echo "<blk>"; \
+    cat $lang/phones.txt | grep -v "<eps>" | grep -v "<SIL>" | grep -v "#[^\d]" | awk '{print $1"_0"; print $1"_1"}'; \
+    cat $lang/phones.txt | grep "#[^\d]") | awk '{print $1 " " NR-1}' > $lang/tokens_disambig.txt
 
 cat $lang/tokens_disambig.txt | grep -v "#[^\d]" > $lang/tokens.txt
 cat $lang/tokens_disambig.txt | grep "#[^\d]" | awk '{print $2}' > $lang/disambig.int

@@ -8,24 +8,21 @@ import json
 import random
 import logging
 import torchaudio
-import logging
 import k2
 from waterfall import graph
 
 
 '''
-Data pipeline for kaldi data dir.
+Data pipeline for kaldi data dir. 
 '''
 
-bundle = torchaudio.pipelines.WAV2VEC2_ASR_LARGE_960H
-
-RATE = bundle.sample_rate
+RATE = 16000  # Sample Rate for WAV2VEC2
 
 
 def read_list(file):
     '''
-    Read a list file, e.g, phones.txt, words.txt, tokens.txt
-    Return a list of all elements, where '<eps>' is always 0, which is a demand by openfst
+    Read a list file, e.g, phones.txt, words.txt, tokens.txt, containing one single item per line
+    Return a list of all elements
     '''
     with open(file) as f:
         items = []
@@ -34,16 +31,25 @@ def read_list(file):
     return items
 
 
-def read_dict(file):
+def read_dict(file, mapping=None):
     '''
     Read a dict file, e.g, wav.scp, text, with the pattern <key> <value>
     Return a dict[<key>] = <value>
+
+    By default, <value> is a string, but can be transformed by mapping (None, by default)
+
+    mapping: a function applied to transform the values 
     '''
     a = dict()
     with open(file) as f:
         for line in f:
             lc = line.strip().split()
-            a[lc[0]] = ' '.join(lc[1:])
+            if mapping:
+                assert len(lc) == 2, 'Expect two elements per line but got %d' % (
+                    len(lc))
+                a[lc[0]] = list(map(mapping, lc[1]))
+            else:
+                a[lc[0]] = ' '.join(lc[1:])
     return a
 
 
@@ -56,108 +62,94 @@ def read_keys(file):
         keys = []
         for line in f:
             utt = line.strip().split()[0]
-            keys .append(utt)
+            keys.append(utt)
     return keys
-
-
-def tokenise(text, token2idx):
-    '''
-    tokenise a text given token2idx
-    text: str
-    token2idx: dict
-
-    return a list of tokens
-    '''
-    words = text.split(' ')
-    tokens = []
-    for word in words:
-        if word in token2idx.keys():
-            tokens.append(token2idx[word])
-        else:
-            tokens.extend([token2idx[token] for token in list(word)])
-        tokens.append(token2idx['<space>'])
-
-    return tokens[:-1]  # Get rid of the last <space>
 
 
 class Lang(object):
 
     """This class is used to read a lang dir"""
 
-    def __init__(self, lang_dir,
-                 token_type='phones',
+    def __init__(self,
+                 lang_dir,
                  load_topo=False,
-                 load_lexicon=False,
-                 load_den_graph=False):
+                 load_lexicon=False):
         """
-
-        :lang: the lang dir in kaldi (utils/prepare_lang.sh) with some other files created by this repo
-
         It should contain the following files usually
 
         dir phones, created by Kaldi
-        disambig.int, created by this repo, the indexes of the disambig symbols in tokens_disambig.txt
         L.fst, created by Kaldi
         L_disambig.fst, created by Kaldi
         oov.int and oov.txt, created by Kaldi
         phones.txt, created by Kaldi
-        T.fst, created by this repo, token FST
         tokens.txt, created by this repo, the output tokens of the neural network model
-        tokens_disambig.txt, created by this repo, for constructing the decoding graph only
         topo, created by Kaldi
         words.txt, created by Kaldi
 
+        Here are some some files introduced in this project.
+
+        T.fst, created by this repo, token FST, for decoding
+        disambig.int, the indexes of the disambig symbols in tokens_disambig.txt
+        tokens_disambig.txt, for constructing the decoding graph only
+
+        Besides, it may also contain a directory k2/ which has the following files for training only
+        phones.txt, without disambig symbols
+        tokens.txt, no <eps> nor disambig symbols, which is exactly reflecting the outputs of the neural network
+        T.fst, for training only as it may not be deterministic
+
         args:
-        lang_dir: str, the lang dir
-        load_topo, bool, False by default, whether or not load lang_dir/k2/T.fst
-        token_type, str, ['tokens', 'phones'] if 'tokens', load lang_dir/tokens.txt, if 'phones' load lang_dir/phones.txt
-            but remove <eps> and disambig symbols, by default tokens.
+        lang_dir: str, the language directory
+        load_topo, bool, False by default, whether or not load $lang_dir/k2/T.fst
         load_lexicon: bool, False by default, whether or not load lang_dir/k2/L_inv.pt. Generate one from lang_dir/L.fst if there is not.
 
         """
         self._lang_dir = lang_dir
-        self.phones = read_list(os.path.join(lang_dir, 'phones.txt'))
-        self.tokens = read_list(os.path.join(lang_dir, 'tokens.txt'))
+        # with <eps> and disambig
         self.words = read_list(os.path.join(lang_dir, 'words.txt'))
+        # with <eps> and disambig
+        self.phones = read_list(os.path.join(lang_dir, 'phones.txt'))
+        # no <eps> no disambig, to match the NN outputs
+        self.tokens = read_list(os.path.join(lang_dir, 'k2', 'tokens.txt'))
 
-        nn_output_tokens = [
-            item for item in self.tokens if item != '<eps>' and not item.startswith('#')]
-        self.num_nn_output = len(nn_output_tokens)
+        self.num_nn_output = len(self.tokens)
 
         self.word2idx = {word: idx for idx, word in enumerate(self.words)}
         self.idx2word = {idx: word for idx, word in enumerate(self.words)}
 
-        # For this two dicts, we need to get rid of <eps> (which is used for openfst)
-        # assume that <blk> is the first token in tokens.txt
-        # This is usually for ctc training, as the token set and phone set are almost the same, except the <blk>
-        # in the token set, in CTC.
-        if token_type == 'tokens':
-            tokens = self.tokens[1:]
-            self.token2idx = {token: idx for idx, token in enumerate(tokens)}
-            self.idx2token = {idx: token for idx, token in enumerate(tokens)}
-        # For phones, remove <eps> and disambig symbols and there is no <blk> in phones
-        # This is generally applied for k2 graph training.
-        elif token_type == 'phones':
-            tokens = [token for token in self.phones if token !=
-                      '<eps>' and not token.startswith('#')]
-            self.token2idx = {token: idx for idx,
-                              token in enumerate(tokens, start=1)}
-            self.idx2token = {idx: token for idx,
-                              token in enumerate(tokens, start=1)}
+        self.phone2idx = {phone: idx for idx, phone in enumerate(self.phones)}
+        self.idx2phone = {idx: phone for idx, phone in enumerate(self.phones)}
+
+        self.token2idx = {token: idx for idx, token in enumerate(self.tokens)}
+        self.idx2token = {idx: token for idx, token in enumerate(self.tokens)}
+
+        self.load_align_lexicon()
 
         if load_topo:
             self.load_topo()
-            # self.load_topo_den()
 
         if load_lexicon:
             self.load_lexicon()
 
-        if load_den_graph:
-            pass
-            # self.compile_denominator_graph()
+    def load_align_lexicon(self):
+        '''
+        This function load the information from
+        $lang_dir/phones/align_lexicon.int,
+        which is a dict (int->[int]) mapping each word to its phone sequence,
+        where the index is given by self.phone2idx and self.word2idx.
+        '''
+
+        self.lexicon = dict()
+        with open(os.path.join(self._lang_dir, 'phones', 'align_lexicon.int')) as f:
+            for line in f:
+                lc = line.strip().split()
+                wid = int(lc[0])
+                pids = list(map(int, lc[2:]))
+                self.lexicon[wid] = pids
 
     def load_topo_bak(self):
         '''
+        For some reason, we may need to keep this for future development.
+
         Load T.fst in the lang_dir and transform it to k2 format for training or decoding
         At the same time, we need to project the input labels to output labels,
         as the input labels represent tokens in tokens.txt and output labels represent phones in phones.txt.
@@ -175,14 +167,13 @@ class Lang(object):
 
     def load_topo(self):
         '''
-        Load T.fst in the lang_dir and transform it to k2 format for training or decoding
+        Load $lang_dir/k2/T.fst 
         At the same time, we need to project the input labels to output labels,
         as the input labels represent tokens in tokens.txt and output labels represent phones in phones.txt.
         '''
         print(f'Loading and processing topo from {self._lang_dir}/k2/T.fst')
         cmd = (
             f"""fstprint {self._lang_dir}/k2/T.fst | """
-            # f"""awk -F '\t' '{{if (NF==4) {{print $0 FS "0.0"; }} else if (NF==5) {{$5="0.0"; print $1 FS $2 FS $3 FS $4 FS $5}} else if (NF==2) {{print $1;}} else {{print $0;}}}}'"""
             f"""awk -F '\t' '{{if (NF==4) {{print $0 FS "0.0"; }} else {{print $0;}}}}'"""
         )
         openfst_txt = os.popen(cmd).read()
@@ -191,7 +182,7 @@ class Lang(object):
 
     def load_lexicon(self):
         '''
-        Load lang_dir/k2/L_inv.pt and generate one if there is not.
+        Load lang_dir/k2/L_inv.pt and generate one if there is not one already.
         '''
         L_inv_fst = os.path.join(self._lang_dir, 'k2', 'L_inv.pt')
         if os.path.exists(L_inv_fst):
@@ -213,6 +204,10 @@ class Lang(object):
             torch.save(self.L_inv.as_dict(), L_inv_fst)
 
     def compile_denominator_graph(self):
+        '''
+        Note!
+        This part cannot work well as the composition of T and L can be too large.
+        '''
 
         if not os.path.exists(f"{self._lang_dir}/k2/TL.fst"):
             print(
@@ -260,8 +255,25 @@ class Lang(object):
 
         return training_graph
 
+    def get_pids_list_from_wids_list(self, wids_list):
+        '''
+        word_ids_list: [[int]]
+
+        return:
+        pids_list: [[int]]
+        '''
+        pids_list = []
+        for wids in wids_list:
+            pids = []
+            for wid in wids:
+                pids.extend(self.lexicon[wid])
+            pids_list.append(pids)
+        return pids_list
+
     def compile_training_graph_bak(self, word_ids_list, device):
         '''
+        Note! For some reason, we keep this for future debugging and development!
+
         word_ids_list: a list of lists of words_ids
         device: str, the computing device, usually should be log_probs.device where log_probs is the NN outputs
 
@@ -291,6 +303,9 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self,
                  data_dir,
                  lang_dir,
+                 load_wav=False,
+                 load_feats=False,
+                 do_delta=False,
                  transforms=None):
         '''
         Read a Kaldi data dir, which should usually contain
@@ -299,15 +314,19 @@ class Dataset(torch.utils.data.Dataset):
         utt2spk
         text
         spk2utt
-        spk2gender
+        utt2spk
+        utt2dur
 
-        TODO: This is no need to process feats.scp and cmvn.scp as 
-        currently we only train our models based on wav2vec 2.0
-
+        args:
+        data_dir: str, the data directory
+        lang_dir: str, the language directory
+        load_wav: bool, whether or not load wav from wav.scp, by default False
+        load_feats: bool, whether or not load feats from $data_dir/dump/delta{true/flase}/feats.scp, by default False
+        do_delta: bool, whether or not load the delta feats , by default False
+        transforms: func, a function that transforms samples, e.g, SpecAugment
         '''
         self.data_dir = data_dir
         self.lang_dir = lang_dir
-
         self.lang = Lang(self.lang_dir)
 
         self.wav_scp = os.path.join(self.data_dir, 'wav.scp')
@@ -317,6 +336,22 @@ class Dataset(torch.utils.data.Dataset):
         self.utt2spk = read_dict(os.path.join(self.data_dir, 'utt2spk'))
         self.utt2text = read_dict(os.path.join(self.data_dir, 'text'))
 
+        self.utt2dur = read_dict(os.path.join(
+            self.data_dir, 'utt2dur'), mapping=float)
+        self.utt2num_frame = read_dict(os.path.join(
+            self.data_dir, 'utt2num_frame'), mapping=int)
+
+        self.load_wav = load_wav
+        self.load_feats = load_feats
+
+        if do_delta:
+            self.dump_feats = os.path.join(
+                self.data_dir, 'dump', 'deltatrue', 'feats.scp')
+        else:
+            self.dump_feats = os.path.join(
+                self.data_dir, 'dump', 'deltafalse', 'feats.scp')
+        self.utt2feats = kaldiio.load_scp(self.dump_feats)
+
         self.transforms = transforms
 
     def __len__(self):
@@ -325,22 +360,51 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         uttid = self.uttids[idx]
         spk = self.utt2spk[uttid]
+        dur = self.utt2dur[uttid]
+        num_frame = self.utt2num_frame[uttid]
         text = self.utt2text[uttid]
-        target = tokenise(text, self.lang.token2idx)
-        rate, wav = self.utt2wav[uttid]
-        wav = torch.tensor(wav, dtype=torch.float32)
-        if rate != RATE:
-            wav = torchaudio.functional.resample(wav, rate, RATE)
+        words = text.split(' ')
+        pids = []  # pids for ctc only
+        word_ids = []
+        for word in words:
+            if word in self.lang.word2idx.keys():
+                wid = self.lang.word2idx[word]
+                word_ids.append(wid)
+                pids.extend(self.lang.lexicon[wid])
+            else:
+                # by default all unknown words are denoted by <UNK>
+                wid = self.lang.word2idx['<UNK>']
+                word_ids.append(wid)
+                pids.extend(self.lang.lexicon[wid])
 
-        wav = (wav - wav.mean()) / torch.sqrt(wav.var())  # Normalisation
+        sample = {
+            # Note this is for CTC and reference only but not for DWFST-based training
+            'target_length': len(pids),
+            'target': pids,
+            # Note this is for CTC and reference only but not for DWFST-based training
+            'name': uttid,
+            'spk': spk,
+            'dur': dur,
+            'num_frame': num_frame,
+            'word_ids': word_ids,
+            'text': text
+        }
 
-        sample = {'wav': wav,
-                  'length': len(wav),
-                  'target_length': len(target),
-                  'target': torch.tensor(target, dtype=torch.long),
-                  'name': uttid,
-                  'spk': spk,
-                  'text': text}
+        if self.load_wav:
+            rate, wav = self.utt2wav[uttid]
+            wav = torch.tensor(wav, dtype=torch.float32)
+            if rate != RATE:
+                wav = torchaudio.functional.resample(wav, rate, RATE)
+
+            wav = (wav - wav.mean()) / torch.sqrt(wav.var())  # Normalisation
+            sample['wav'] = wav
+            sample['wav_len'] = len(wav)
+
+        if self.load_feats:
+            feats = torch.tensor(self.utt2feats[uttid], dtype=torch.float32)
+            sample['feats'] = feats
+            sample['feats_len'] = feats.shape[0]
+
         if self.transforms:
             return self.transforms(sample)
         else:
@@ -348,59 +412,136 @@ class Dataset(torch.utils.data.Dataset):
 
 
 def collate_fn(list_of_samples):
-    # Collect data
     batch_targets = [sample['target'] for sample in list_of_samples]
     batch_target_lengths = [sample['target_length']
                             for sample in list_of_samples]
     batch_names = [sample['name'] for sample in list_of_samples]
     batch_spks = [sample['spk'] for sample in list_of_samples]
+    batch_durs = [sample['dur'] for sample in list_of_samples]
+    batch_num_frames = [sample['num_frame'] for sample in list_of_samples]
     batch_texts = [sample['text'] for sample in list_of_samples]
+    batch_word_ids = [sample['word_ids'] for sample in list_of_samples]
 
-    batch_wav = [sample['wav'] for sample in list_of_samples]
-    batch_lengths = [sample['length'] for sample in list_of_samples]
+    samples_collated = {'target_lengths': torch.tensor(batch_target_lengths, dtype=torch.long),
+                        'targets': torch.nn.utils.rnn.pad_sequence(batch_targets, batch_first=True),
+                        'names': batch_names,
+                        'spks': batch_spks,
+                        'durs': batch_durs,
+                        'num_frames': batch_num_frames,
+                        'texts': batch_texts}
 
-    return {'wavs': torch.nn.utils.rnn.pad_sequence(batch_wav, batch_first=True),
-            'lengths': torch.tensor(batch_lengths, dtype=torch.long),
-            'target_lengths': torch.tensor(batch_target_lengths, dtype=torch.long),
-            'targets': torch.nn.utils.rnn.pad_sequence(batch_targets, batch_first=True),
-            'names': batch_names,
-            'spks': batch_spks,
-            'texts': batch_texts}
+    if 'wav' in list_of_samples[0].keys():
+        batch_wav = [sample['wav'] for sample in list_of_samples]
+        batch_wav_lengths = [sample['wav_len'] for sample in list_of_samples]
+        samples_collated['wavs'] = torch.nn.utils.rnn.pad_sequence(
+            batch_wav, batch_first=True)
+        samples_collated['wav_lens'] = torch.tensor(
+            batch_wav_lengths, dtype=torch.long)
+
+    if 'feats' in list_of_samples[0].keys():
+        batch_feats = [sample['feats'] for sample in list_of_samples]
+        batch_feats_lens = [sample['feats_len'] for sample in list_of_samples]
+        samples_collated['feats'] = torch.nn.utils.rnn.pad_sequence(
+            batch_feats, batch_first=True)
+        samples_collated['feats_lens'] = torch.tensor(
+            batch_feats_lens, dtype=torch.long)
+
+    return samples_collated
 
 
 def collate_fn_sorted(list_of_samples):
     # Collect data
-    batch_targets = [sample['target'] for sample in list_of_samples]
-    batch_target_lengths = [sample['target_length']
-                            for sample in list_of_samples]
-    batch_names = [sample['name'] for sample in list_of_samples]
-    batch_spks = [sample['spk'] for sample in list_of_samples]
-    batch_texts = [sample['text'] for sample in list_of_samples]
 
-    batch_wav = [sample['wav'] for sample in list_of_samples]
-    batch_lengths = [sample['length'] for sample in list_of_samples]
+    if 'wav' in list_of_samples[0].keys():
+        batch_targets = [sample['target'] for sample in list_of_samples]
+        batch_target_lengths = [sample['target_length']
+                                for sample in list_of_samples]
+        batch_names = [sample['name'] for sample in list_of_samples]
+        batch_spks = [sample['spk'] for sample in list_of_samples]
+        batch_durs = [sample['dur'] for sample in list_of_samples]
+        batch_num_frames = [sample['num_frame'] for sample in list_of_samples]
+        batch_texts = [sample['text'] for sample in list_of_samples]
+        batch_word_ids = [sample['word_ids'] for sample in list_of_samples]
 
-    # Sorted
-    batch_wav = [x for _, x in sorted(
-        zip(batch_lengths, batch_wav), key=lambda x:x[0], reverse=True)]
-    batch_targets = [x for _, x in sorted(
-        zip(batch_lengths, batch_targets), key=lambda x:x[0], reverse=True)]
-    batch_target_lengths = [x for _, x in sorted(
-        zip(batch_lengths, batch_target_lengths), key=lambda x:x[0], reverse=True)]
+        batch_wav = [sample['wav'] for sample in list_of_samples]
+        batch_lengths = [sample['wav_len'] for sample in list_of_samples]
 
-    batch_names = [x for _, x in sorted(
-        zip(batch_lengths, batch_names), key=lambda x:x[0], reverse=True)]
-    batch_spks = [x for _, x in sorted(
-        zip(batch_lengths, batch_spks), key=lambda x:x[0], reverse=True)]
-    batch_texts = [x for _, x in sorted(
-        zip(batch_lengths, batch_texts), key=lambda x:x[0], reverse=True)]
+        # Sorted
+        batch_wav = [x for _, x in sorted(
+            zip(batch_lengths, batch_wav), key=lambda x:x[0], reverse=True)]
+        batch_targets = [x for _, x in sorted(
+            zip(batch_lengths, batch_targets), key=lambda x:x[0], reverse=True)]
+        batch_target_lengths = [x for _, x in sorted(
+            zip(batch_lengths, batch_target_lengths), key=lambda x:x[0], reverse=True)]
 
-    batch_lengths = sorted(batch_lengths, reverse=True)
+        batch_names = [x for _, x in sorted(
+            zip(batch_lengths, batch_names), key=lambda x:x[0], reverse=True)]
+        batch_spks = [x for _, x in sorted(
+            zip(batch_lengths, batch_spks), key=lambda x:x[0], reverse=True)]
+        batch_durs = [x for _, x in sorted(
+            zip(batch_lengths, batch_durs), key=lambda x:x[0], reverse=True)]
+        batch_num_frames = [x for _, x in sorted(
+            zip(batch_lengths, batch_num_frames), key=lambda x:x[0], reverse=True)]
+        batch_texts = [x for _, x in sorted(
+            zip(batch_lengths, batch_texts), key=lambda x:x[0], reverse=True)]
+        batch_word_ids = [x for _, x in sorted(
+            zip(batch_lengths, batch_word_ids), key=lambda x:x[0], reverse=True)]
 
-    return {'wavs': torch.nn.utils.rnn.pad_sequence(batch_wav, batch_first=True),
-            'lengths': torch.tensor(batch_lengths, dtype=torch.long),
-            'target_lengths': torch.tensor(batch_target_lengths, dtype=torch.long),
-            'targets': torch.nn.utils.rnn.pad_sequence(batch_targets, batch_first=True),
-            'names': batch_names,
-            'spks': batch_spks,
-            'texts': batch_texts}
+        batch_lengths = sorted(batch_lengths, reverse=True)
+
+        return {'wavs': torch.nn.utils.rnn.pad_sequence(batch_wav, batch_first=True),
+                'wav_lens': torch.tensor(batch_lengths, dtype=torch.long),
+                'target_lengths': torch.tensor(batch_target_lengths, dtype=torch.long),
+                'targets': batch_targets,
+                'names': batch_names,
+                'spks': batch_spks,
+                'durs': batch_durs,
+                'num_frames': batch_num_frames,
+                'word_ids': batch_word_ids,
+                'texts': batch_texts}
+
+    if 'feats' in list_of_samples[0].keys():
+        batch_targets = [sample['target'] for sample in list_of_samples]
+        batch_target_lengths = [sample['target_length']
+                                for sample in list_of_samples]
+        batch_names = [sample['name'] for sample in list_of_samples]
+        batch_spks = [sample['spk'] for sample in list_of_samples]
+        batch_durs = [sample['dur'] for sample in list_of_samples]
+        batch_num_frames = [sample['num_frame'] for sample in list_of_samples]
+        batch_texts = [sample['text'] for sample in list_of_samples]
+        batch_word_ids = [sample['word_ids'] for sample in list_of_samples]
+
+        batch_feats = [sample['feats'] for sample in list_of_samples]
+        batch_feats_lens = [sample['feats_len'] for sample in list_of_samples]
+
+        # Sorted
+        batch_feats = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_feats), key=lambda x:x[0], reverse=True)]
+        batch_targets = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_targets), key=lambda x:x[0], reverse=True)]
+        batch_target_lengths = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_target_lengths), key=lambda x:x[0], reverse=True)]
+
+        batch_names = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_names), key=lambda x:x[0], reverse=True)]
+        batch_spks = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_spks), key=lambda x:x[0], reverse=True)]
+        batch_durs = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_durs), key=lambda x:x[0], reverse=True)]
+        batch_num_frames = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_num_frames), key=lambda x:x[0], reverse=True)]
+        batch_texts = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_texts), key=lambda x:x[0], reverse=True)]
+        batch_word_ids = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_word_ids), key=lambda x:x[0], reverse=True)]
+
+        batch_feats_lens = sorted(batch_feats_lens, reverse=True)
+
+        return {'feats': torch.nn.utils.rnn.pad_sequence(batch_feats, batch_first=True),
+                'feats_lens': torch.tensor(batch_feats_lens, dtype=torch.long),
+                'target_lengths': torch.tensor(batch_target_lengths, dtype=torch.long),
+                'targets': batch_targets,
+                'names': batch_names,
+                'spks': batch_spks,
+                'word_ids': batch_word_ids,
+                'texts': batch_texts}

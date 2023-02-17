@@ -16,14 +16,15 @@ fread = open(sys.argv[1], 'r')
 nodeX = 1
 nodes= [] # list of tuple (phone, nodeX). Note each phone corresponds to one state id, nodeX
 
+
+print(str(0) + ' ' + str(0) + ' ' + '<blk>' + ' ' + '<eps>') # <blk> self-loop on state 0
+
 for entry in fread.readlines():
     entry = entry.replace('\n', '').strip()
     fields = entry.split(' ')
     phone = fields[0]
-    if phone == '<eps>' or phone == '<blk>':
+    if phone == '<eps>' or phone == '<SIL>' or phone.startswith('#'):
         continue
-    if phone.startswith('#'):
-        print(str(0) + ' ' + str(0) + ' ' + phone + ' ' + phone)
     else:
         print(str(0) + ' ' + str(0) + ' ' + phone+'_0' + ' ' + phone) # transiting the first state
         print(str(0) + ' ' + str(nodeX) + ' ' + phone+'_0' + ' ' + phone) # transiting the first state
