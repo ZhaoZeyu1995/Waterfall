@@ -3,10 +3,6 @@
 . ./path.sh
 . ./cmd.sh
 
-
-
-
-
 nbpe=5000
 bpemode=unigram
 

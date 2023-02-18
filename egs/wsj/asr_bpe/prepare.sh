@@ -18,9 +18,12 @@ wsj0=/group/corporapublic/wsj/wsj0
 wsj1=/group/corporapublic/wsj/wsj1
 corpus=/group/corporapublic/wsj
 
-topos="ctc mmictc 2state 2state_blk mmictc_blk"
-lm_suffixes="test_tg test_bd_tg test_bd_fg"
+topos="ctc mmictc 2state 2state-1 3state-skip"
+lm_suffixes="test_tg test_bd_fg"
+
+# BPE setting
 nbpe=5000
+bpemode=unigram
 
 
 . utils/parse_options.sh || exit 1;
@@ -67,36 +70,16 @@ fi
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     echo "stage 2: Prepare Dictionary for BPE"
 
-    bpe_local_dict=data/local/lang_bpe
-    nlsyms=$bpe_local_dict/nlsyms
-    if [ -d $bpe_local_dict ]; then
-        rm -rf $bpe_local_dict
-    fi
-    mkdir -p $bpe_local_dict
+    local/prepare_bpe_dict.sh ${nbpe} ${bpemode}
 
-    (cat data/train_si284/text | cut -f 2- -d" " | tr " " "\n" | sort | uniq; cat data/lang_nosp_bd/words.txt | awk '{print $1}') \
-        | sort | uniq | grep -v -E '<eps>|<s>|</s>|#0|^#' > $bpe_local_dict/words.txt  || exit 1;
-    (echo "'APOSTROPHE"; echo "'END-INNER-QUOTE"; echo "'END-QUOTE"; echo "'INNER-QUOTE"; echo "'QUOTE"; echo "'SINGLE-QUOTE") > ${nlsyms}_tmp || exit 1;
-    cat data/lang_nosp_bd/words.txt \
-         | awk '{print $1}' | grep -v -E '<eps>|<s>|</s>|#0' | grep -E '^<|^!|^\(|^"|^\)|^,|^-|^\.|^%|^&|^/|^;|^\?' | sort | uniq >> ${nlsyms}_tmp || exit 1;
-    cat $bpe_local_dict/words.txt | grep -E '^\{|^\}|^~|^<' >> ${nlsyms}_tmp
-    cat ${nlsyms}_tmp | sort | uniq > ${nlsyms}
+    utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe} \
+                    "<UNK>" data/local/dict_bpe_${nbpe}_tmp data/lang_bpe_${nbpe}
+    utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe}_test \
+                    "<UNK>" data/local/dict_bpe_${nbpe}_test_tmp data/lang_bpe_${nbpe}_eval
 
-    # Prepare texts
-    #
-    (cat data/train_si284/text; cat data/test_dev93/text; cat data/test_eval92/text) | cut -f 2- -d" " > $bpe_local_dict/texts
-
-    tokenise.py $bpe_local_dict/texts $bpe_local_dict/words.txt $bpe_local_dict --nbpe $nbpe --nlsyms $bpe_local_dict/nlsyms
-
-    cat $bpe_local_dict/lexicon.txt | cut -f 2- -d" " | tr " " "\n" | sort | uniq > $bpe_local_dict/nonsilence_phones.txt
-    echo "<space>" > $bpe_local_dict/silence_phones.txt
-    echo "<space>" > $bpe_local_dict/optional_silence.txt
-
-    utils/prepare_lang.sh --position-dependent-phones false $bpe_local_dict \
-                        "<UNK>" ${bpe_local_dict}_tmp data/lang_bpe
-    cp -r data/lang_bpe data/lang_bpe_bd
-    local/wsj_format_data.sh --lang-suffix "_bpe"
-    local/wsj_format_local_lms.sh --lang-suffix "_bpe"
+    cp -r data/lang_bpe_${nbpe}_eval data/lang_bpe_${nbpe}_eval_bd
+    local/wsj_format_data.sh --lang-suffix "_bpe_${nbpe}_eval"
+    local/wsj_format_local_lms.sh --lang-suffix "_bpe_${nbpe}_eval"
 fi
 
 feat_tr_dir=data/${train_set}/dump/delta${do_delta}; mkdir -p ${feat_tr_dir}
@@ -108,30 +91,23 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     for x in train_si284_sp test_dev93 test_eval92; do
         steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
             data/${x} exp/make_fbank/${x} ${fbankdir}
+        steps/compute_cmvn_stats.sh data/${x}
         utils/fix_data_dir.sh data/${x}
+        dump_utt2spk.sh data/${x} exp/dump_utt2spk/${x} data/${x}/dump/delta${do_delta}
     done
 
-    utils/combine_data.sh  data/${train_set} data/${base_train_set} data/${base_train_set}_0.9 data/${base_train_set}_1.1 || exit 1;
-
-    compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
-
-    dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
-        data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
-    dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
-        data/${train_dev}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/dev ${feat_dt_dir}
-    for rtask in ${recog_set}; do
-        feat_recog_dir=data/${rtask}/dump/delta${do_delta}; mkdir -p ${feat_recog_dir}
-        dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
-            data/${rtask}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/recog/${rtask} \
-            ${feat_recog_dir}
-    done
 fi
 
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
-    echo "stage 4: Generating different topologies and token FSTs."
+    echo "stage 4: Generating different topologies and token FSTs for training and evaluation."
+    for topo in $topos; do
+        [ -d data/lang_bpe_${nbpe}_${topo} ] && rm -rf data/lang_bpe_${nbpe}_${topo}
+        cp -r data/lang_bpe_${nbpe} data/lang_bpe_${nbpe}_${topo}
+        prepare_${topo}.sh data/lang_bpe_${nbpe}_${topo}
+    done
     for topo in $topos; do
         for suffix in $lm_suffixes; do
-            prepare_graph.sh --type $topo data/lang_bpe_${suffix} data/local/lang_bpe_${suffix}_${topo}_tmp
+            prepare_graph.sh --topo $topo data/lang_bpe_${nbpe}_eval_${suffix} data/local/lang_bpe_${nbpe}_eval_${suffix}_${topo}_tmp
         done
     done
 fi
