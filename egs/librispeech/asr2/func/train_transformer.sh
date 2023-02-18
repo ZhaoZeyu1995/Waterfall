@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# Train the conformer model with the given configuration file
-# e.g train_conformer.sh --train_config conf/train.yaml --expname ctc --gpus 4 data/train data/dev data/lang
+# Train a transformer model with the given configuration file
+# e.g train_transformer.sh --train_config conf/train.yaml --expname ctc --gpus 4 data/train data/dev data/lang
 
 . ./path.sh || exit 1
 . ./env.sh || exit 1
 . ./cmd.sh || exit 1
 
 
-train_config="conf/train_k2_conformer.yaml"
+train_config="conf/train_k2.yaml"
 expname=ctc
 gpus=4
 checkpoint=
@@ -19,12 +19,12 @@ accumulate_grad_batches=1
 . utils/parse_options.sh || exit 1
 
 if [ $# != 3 ]; then
-  echo "Usage: train.sh [options] <train_set> <dev_set> <lang_dir>"
+  echo "Usage: func/train_transformer.sh [options] <train_set> <dev_set> <lang_dir>"
   echo "     --train_config              # default: conf/train.yaml, the training configuration file."
   echo "     --expname                   # default: ctc, the output directory name in exp."
   echo "     --gpus                      # default: 4, the number of gpus used for training."
   echo "e.g.:"
-  echo " $0 --train_config conf/train.yaml --gpus 4 --expname ctc data/train data/dev data/lang"
+  echo " $0 --train_config conf/train_k2.yaml --gpus 4 --expname ctc data/train data/dev data/lang"
   exit 1
 fi
 

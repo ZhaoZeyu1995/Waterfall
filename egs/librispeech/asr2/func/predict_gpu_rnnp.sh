@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Get output of the neural network by GPUs
+# Get outputs from an RNNP model by GPUs
 # e.g. predict_gpu.sh --gpus 1 data/dev data/lang exp/ctc/version_0/checkpoints/epoch=26-vald_loss=0.0000.ckpt/ exp/ctc/version_0
 
 

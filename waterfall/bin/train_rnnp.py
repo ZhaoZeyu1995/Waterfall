@@ -96,7 +96,7 @@ def main(args):
         accumulate_grad_batches = cfg['accumulate_grad_batches']
 
     logger = pl.loggers.WandbLogger(
-        project='exp-%s-%s' % (os.path.basename(os.path.dirname(os.getcwd())),
+        project='waterfall-%s-%s' % (os.path.basename(os.path.dirname(os.getcwd())),
                            os.path.basename(os.getcwd())),
         name=args.name)
     logger.watch(model, log='all', log_graph=False)

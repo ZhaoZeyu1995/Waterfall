@@ -38,7 +38,10 @@ class RNNPModel(pl.LightningModule):
 
         self.output_layer = nn.Linear(cfg['eprojs'], self.output_dim)
 
-        self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
+        if self.cfg['loss'] == 'builtin_ctc':
+            self.lang = Lang(lang_dir)
+        elif self.cfg['loss'] == 'k2':
+            self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
 
