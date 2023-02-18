@@ -70,6 +70,18 @@ class RNNPModel(pl.LightningModule):
 
             if 'no_den' in self.cfg.keys() and self.cfg['no_den']:
                 loss = numerator
+            elif 'no_den_grad' in self.cfg.keys() and self.cfg['no_den_grad']:
+                with torch.no_grad():
+                    den_decoding_graph = k2.create_fsa_vec(
+                        [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
+
+                    assert den_decoding_graph.requires_grad == False
+
+                    denominator = graph.graphloss(decoding_graph=den_decoding_graph,
+                                                  dense_fsa_vec=dense_fsa_vec,
+                                                  target_lengths=target_lengths,
+                                                  reduction='mean')
+                loss = numerator - denominator
             else:
 
                 den_decoding_graph = k2.create_fsa_vec(
