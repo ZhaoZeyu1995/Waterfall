@@ -1,0 +1,31 @@
+# loss_func
+loss: builtin_ctc
+# batch
+batch_size: 8
+# data pipeline
+num_workers: 2
+# multi-gpu training
+strategy: ddp
+# optimiser
+#optimiser: adam
+lr: 1e-4
+lr_patience: 2
+min_lr: 1e-6
+factor: 0.1
+# random seed
+seed: 777
+# early_stopping
+early_stopping: true
+patience: 4
+# for debugging
+max_steps: -1
+max_epochs: 1000
+
+#model related
+etype: vggblstmp
+idim: 83
+elayers: 2
+eunits: 64
+eprojs: 64
+subsample: [1,1,1]
+dropout: 0.1

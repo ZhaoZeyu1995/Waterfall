@@ -1,0 +1,4 @@
+<SIL> <SIL>
+<UNK> <UNK>
+YES Y
+NO N

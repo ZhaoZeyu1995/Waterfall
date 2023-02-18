@@ -47,7 +47,7 @@ def read_dict(file, mapping=None):
             if mapping:
                 assert len(lc) == 2, 'Expect two elements per line but got %d' % (
                     len(lc))
-                a[lc[0]] = list(map(mapping, lc[1]))
+                a[lc[0]] = mapping(lc[1])
             else:
                 a[lc[0]] = ' '.join(lc[1:])
     return a
@@ -303,6 +303,7 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self,
                  data_dir,
                  lang_dir,
+                 ctc_target=False,
                  load_wav=False,
                  load_feats=False,
                  do_delta=False,
@@ -320,6 +321,7 @@ class Dataset(torch.utils.data.Dataset):
         args:
         data_dir: str, the data directory
         lang_dir: str, the language directory
+        ctc_target: bool, whether or not prepare ctc targets which is stored with the key 'target_ctc', by default False
         load_wav: bool, whether or not load wav from wav.scp, by default False
         load_feats: bool, whether or not load feats from $data_dir/dump/delta{true/flase}/feats.scp, by default False
         do_delta: bool, whether or not load the delta feats , by default False
@@ -338,9 +340,10 @@ class Dataset(torch.utils.data.Dataset):
 
         self.utt2dur = read_dict(os.path.join(
             self.data_dir, 'utt2dur'), mapping=float)
-        self.utt2num_frame = read_dict(os.path.join(
-            self.data_dir, 'utt2num_frame'), mapping=int)
+        self.utt2num_frames = read_dict(os.path.join(
+            self.data_dir, 'utt2num_frames'), mapping=int)
 
+        self.ctc_target = ctc_target
         self.load_wav = load_wav
         self.load_feats = load_feats
 
@@ -361,7 +364,7 @@ class Dataset(torch.utils.data.Dataset):
         uttid = self.uttids[idx]
         spk = self.utt2spk[uttid]
         dur = self.utt2dur[uttid]
-        num_frame = self.utt2num_frame[uttid]
+        num_frame = self.utt2num_frames[uttid]
         text = self.utt2text[uttid]
         words = text.split(' ')
         pids = []  # pids for ctc only
@@ -376,11 +379,18 @@ class Dataset(torch.utils.data.Dataset):
                 wid = self.lang.word2idx['<UNK>']
                 word_ids.append(wid)
                 pids.extend(self.lang.lexicon[wid])
+        tids = []
+        if self.ctc_target:
+            for pid in pids:
+                assert self.lang.idx2phone[pid] in self.lang.token2idx, 'Cannot find the token %s from the token list, please make sure you are using CTC topo' % (
+                    self.lang.idx2phone[pid])
+                tids.append(self.lang.token2idx[self.lang.idx2phone[pid]])
 
         sample = {
             # Note this is for CTC and reference only but not for DWFST-based training
             'target_length': len(pids),
-            'target': pids,
+            'target': torch.tensor(pids, dtype=torch.int64),
+            'target_ctc': torch.tensor(tids, dtype=torch.int64),
             # Note this is for CTC and reference only but not for DWFST-based training
             'name': uttid,
             'spk': spk,
@@ -413,6 +423,7 @@ class Dataset(torch.utils.data.Dataset):
 
 def collate_fn(list_of_samples):
     batch_targets = [sample['target'] for sample in list_of_samples]
+    batch_targets_ctc = [sample['target_ctc'] for sample in list_of_samples]
     batch_target_lengths = [sample['target_length']
                             for sample in list_of_samples]
     batch_names = [sample['name'] for sample in list_of_samples]
@@ -424,6 +435,7 @@ def collate_fn(list_of_samples):
 
     samples_collated = {'target_lengths': torch.tensor(batch_target_lengths, dtype=torch.long),
                         'targets': torch.nn.utils.rnn.pad_sequence(batch_targets, batch_first=True),
+                        'targets_ctc': torch.nn.utils.rnn.pad_sequence(batch_targets_ctc, batch_first=True),
                         'names': batch_names,
                         'spks': batch_spks,
                         'durs': batch_durs,
@@ -454,6 +466,8 @@ def collate_fn_sorted(list_of_samples):
 
     if 'wav' in list_of_samples[0].keys():
         batch_targets = [sample['target'] for sample in list_of_samples]
+        batch_targets_ctc = [sample['target_ctc']
+                             for sample in list_of_samples]
         batch_target_lengths = [sample['target_length']
                                 for sample in list_of_samples]
         batch_names = [sample['name'] for sample in list_of_samples]
@@ -471,6 +485,8 @@ def collate_fn_sorted(list_of_samples):
             zip(batch_lengths, batch_wav), key=lambda x:x[0], reverse=True)]
         batch_targets = [x for _, x in sorted(
             zip(batch_lengths, batch_targets), key=lambda x:x[0], reverse=True)]
+        batch_targets_ctc = [x for _, x in sorted(
+            zip(batch_lengths, batch_targets_ctc), key=lambda x:x[0], reverse=True)]
         batch_target_lengths = [x for _, x in sorted(
             zip(batch_lengths, batch_target_lengths), key=lambda x:x[0], reverse=True)]
 
@@ -492,7 +508,8 @@ def collate_fn_sorted(list_of_samples):
         return {'wavs': torch.nn.utils.rnn.pad_sequence(batch_wav, batch_first=True),
                 'wav_lens': torch.tensor(batch_lengths, dtype=torch.long),
                 'target_lengths': torch.tensor(batch_target_lengths, dtype=torch.long),
-                'targets': batch_targets,
+                'targets': torch.nn.utils.pad_sequence(batch_targets, batch_first=True),
+                'targets_ctc': torch.nn.utils.pad_sequence(batch_targets_ctc, batch_first=True),
                 'names': batch_names,
                 'spks': batch_spks,
                 'durs': batch_durs,
@@ -502,6 +519,8 @@ def collate_fn_sorted(list_of_samples):
 
     if 'feats' in list_of_samples[0].keys():
         batch_targets = [sample['target'] for sample in list_of_samples]
+        batch_targets_ctc = [sample['target_ctc']
+                             for sample in list_of_samples]
         batch_target_lengths = [sample['target_length']
                                 for sample in list_of_samples]
         batch_names = [sample['name'] for sample in list_of_samples]
@@ -519,6 +538,8 @@ def collate_fn_sorted(list_of_samples):
             zip(batch_feats_lens, batch_feats), key=lambda x:x[0], reverse=True)]
         batch_targets = [x for _, x in sorted(
             zip(batch_feats_lens, batch_targets), key=lambda x:x[0], reverse=True)]
+        batch_targets_ctc = [x for _, x in sorted(
+            zip(batch_feats_lens, batch_targets_ctc), key=lambda x:x[0], reverse=True)]
         batch_target_lengths = [x for _, x in sorted(
             zip(batch_feats_lens, batch_target_lengths), key=lambda x:x[0], reverse=True)]
 
@@ -540,7 +561,8 @@ def collate_fn_sorted(list_of_samples):
         return {'feats': torch.nn.utils.rnn.pad_sequence(batch_feats, batch_first=True),
                 'feats_lens': torch.tensor(batch_feats_lens, dtype=torch.long),
                 'target_lengths': torch.tensor(batch_target_lengths, dtype=torch.long),
-                'targets': batch_targets,
+                'targets': torch.nn.utils.rnn.pad_sequence(batch_targets, batch_first=True),
+                'targets_ctc': torch.nn.utils.rnn.pad_sequence(batch_targets_ctc, batch_first=True),
                 'names': batch_names,
                 'spks': batch_spks,
                 'word_ids': batch_word_ids,

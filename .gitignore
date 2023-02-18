@@ -8,7 +8,8 @@ debug
 word.txt
 
 egs/*/*/data
-egs/*/*/exp
+egs/*/*/exp*
+egs/*/*/wandb
 egs/*/*/any_run.sh
 egs/*/*/fbank
 egs/*/*/sbatch.*
