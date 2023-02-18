@@ -12,6 +12,7 @@ egs/*/*/exp*
 egs/*/*/wandb
 egs/*/*/any_run.sh
 egs/*/*/fbank
+egs/*/*/cmvn
 egs/*/*/sbatch.*
 egs/*/*/*.sbatch
 egs/*/*/wandb
