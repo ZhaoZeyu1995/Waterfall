@@ -1,5 +1,6 @@
 # loss_func
-loss: builtin_ctc
+loss: k2
+no_den: true
 # batch
 batch_size: 8
 # data pipeline
