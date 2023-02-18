@@ -34,6 +34,8 @@ class RNNPModel(pl.LightningModule):
             dropout=cfg['dropout']
         )
 
+        self.batch_norm = nn.BatchNorm1d(cfg['eprojs'])
+
         self.output_layer = nn.Linear(cfg['eprojs'], self.output_dim)
 
         self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
@@ -97,6 +99,8 @@ class RNNPModel(pl.LightningModule):
 
     def forward(self, x, xlens):
         x, xlens, _ = self.encoder(x, xlens)
+        x = self.batch_norm(x.permute(0, 2, 1))
+        x = x.permute(0, 2, 1)
         x = self.output_layer(x)
         x = F.log_softmax(x, dim=-1)
         return x, xlens

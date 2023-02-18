@@ -13,7 +13,7 @@ beta="1.5"
 beam_width='50'
 beam_prune_logp="-10"
 token_min_logp="-5"
-lm=data/local/nist_lm/lm_tg.arpa
+lm=
 
 . ./utils/parse_options.sh
 
@@ -43,7 +43,11 @@ fi
 
 decode_dir=$predict_dir/alpha_${alpha}-beta_${beta}-beam_width_${beam_width}-beam_prune_${beam_prune_logp}-token_min_logp_${token_min_logp}
 mkdir -p $decode_dir
-run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_pyctc.JOB.log func/decode_pyctc.py --alpha $alpha --beta $beta --beam_width $beam_width --beam_prune_logp ${beam_prune_logp} --token_min_logp ${token_min_logp} --lm $lm --word_symbol_table ${lang_dir}/words.txt $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd $lang_dir/k2/tokens.txt 
+if [ -z $lm ]; then
+    run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_pyctc.JOB.log func/decode_pyctc.py --alpha $alpha --beta $beta --beam_width $beam_width --beam_prune_logp ${beam_prune_logp} --token_min_logp ${token_min_logp} --word_symbol_table ${lang_dir}/words.txt $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd $lang_dir/k2/tokens.txt 
+else
+    run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_pyctc.JOB.log func/decode_pyctc.py --alpha $alpha --beta $beta --beam_width $beam_width --beam_prune_logp ${beam_prune_logp} --token_min_logp ${token_min_logp} --lm $lm --word_symbol_table ${lang_dir}/words.txt $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd $lang_dir/k2/tokens.txt 
+fi
 
 for i in $(seq $nj); do
     cat $decode_dir/split$nj/hyp.$i.wrd || exit 1;

@@ -4,12 +4,12 @@
 
 
 
-type=
+topo=
 
 . ./utils/parse_options.sh
 
-if [ -z $type ]; then
-    echo "--type cannot be blank!"
+if [ -z $topo ]; then
+    echo "--topo cannot be blank!"
     exit 1
 fi
 
@@ -18,13 +18,13 @@ tmpdir=$2
 dir=$3
 
 if [ $# -lt 2 ]; then
-    echo 'Usage: prepare_graph.sh [--type ctc|mmictc|2state|2state-1|3state-skip] <srcdir> <tmpdir> [<desdir>]'
-    echo 'By default, <desdir>=${srcdir}_${type}'
+    echo 'Usage: prepare_graph.sh [--topo ctc|mmictc|2state|2state-1|3state-skip] <srcdir> <tmpdir> [<desdir>]'
+    echo 'By default, <desdir>=${srcdir}_${topo}'
     exit 1
 fi
 
 if [ $# -eq 2 ]; then
-    dir=${srcdir}_${type}
+    dir=${srcdir}_${topo}
 fi
 
 
@@ -43,7 +43,7 @@ cp -r $srcdir $dir
 mkdir -p ${tmpdir}
 
 echo "Generating T.fst in ${dir}..."
-prepare_$type.sh $dir || exit 1;
+prepare_${topo}.sh $dir || exit 1;
 echo "Done!"
 
 echo "Preparing decoding graph TLG.fst in ${dir}..."

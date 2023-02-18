@@ -66,6 +66,7 @@ def main(args):
                                                     save_top_k=1 if 'save_top_k' not in cfg.keys(
                                                     ) else cfg['save_top_k'],
                                                     every_n_epochs=1,
+                                                    dirpath='exp/%s/checkpoint' % (args.name),
                                                     filename='{epoch}-{valid_loss:.3f}',
                                                     mode='min')
 
