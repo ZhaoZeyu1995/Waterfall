@@ -16,5 +16,6 @@ egs/*/*/sbatch.*
 egs/*/*/*.sbatch
 egs/*/*/wandb
 egs/*/*/conf/debug.yaml
+egs/yesno/asr/waves_yesno*
 
 tools/kaldi
