@@ -1,36 +1,54 @@
 #!/bin/bash
+#
+# Prepare a BPE dict which is the input for utils/prepare_lang.sh
+# This programme generates two dict, for training and testing, respectively.
+# data/local/dict_bpe_${nbpe} data/local/dict_bpe_${nbpe}_test
+# with different vocabularies for the lexicons.
+# For training, the lexicon only contains the words in the training set.
+# For testing, the lexicon only contains the words in the testing sets, which may not be completely covered by the LMs, but basically alright.
+# Usage: ./local/prepare_bpe_dict.sh ${nbpe} ${bpemode}
+# Example: ./local/prepare_bpe_dict.sh 5000 unigram
 
-. ./path.sh
-. ./cmd.sh
+
+. ./path.sh || exit 1
+. ./cmd.sh || exit 1
 
 
+nbpe=$1
+bpemode=$2
 
+train_set=train_960
 
+train_dict=data/local/dict_bpe_${nbpe}
+test_dict=data/local/dict_bpe_${nbpe}_test
 
-nbpe=5000
-bpemode=unigram
+[ -d $train_dict ] && rm -rf $train_dict
+[ -d $test_dict ] && rm -rf $test_dict
 
+mkdir -p $train_dict
+mkdir -p $test_dict
 
-. utils/parse_options.sh || exit 1;
+cut -f 2- -d" " data/$train_set/text > $train_dict/input.txt
 
-local_dir=$1
-data_dir=$2
-dataset_vocab=$3
+cut -f 2- -d" " data/$train_set/text | tr " " "\n" | grep -v "<UNK>" | sort | uniq > $train_dict/words
+(cut -f 2- -d" " data/dev_clean/text; cut -f 2- -d" " data/dev_other/text; cut -f 2- -d" " data/test_clean/text; cut -f 2- -d" " data/test_other/text) \
+    | tr " " "\n" | grep -v "<UNK>" | sort | uniq > $test_dict/words
 
-mkdir -p $local_dir
-bpemodel=$local_dir/$(basename $data_dir)_${bpemode}_${nbpe}
+bpemodel=$train_dict/${train_set}_${bpemode}_${nbpe}
 
-cat $data_dir/text | cut -f 2- -d " " > $local_dir/input.txt
+spm_train --input=$train_dict/input.txt --vocab_size=${nbpe} --model_type=${bpemode} --model_prefix=${bpemodel} --input_sentence_size=100000000
 
-(cat $local_dir/input.txt | tr ' ' '\n' | sort | uniq ; cat $dataset_vocab) | sort | uniq > $local_dir/words.txt
+(echo "<UNK>"; spm_encode --model=${bpemodel}.model --output_format=piece < $train_dict/words | tr ' ' '\n') | grep -v "<SIL>"| sort | uniq > $train_dict/nonsilence_phones.txt
+cp $train_dict/nonsilence_phones.txt $test_dict/nonsilence_phones.txt
 
-spm_train --input=$local_dir/input.txt --vocab_size=${nbpe} --model_type=${bpemode} --model_prefix=${bpemodel} --input_sentence_size=100000000
-spm_encode --model=${bpemodel}.model --output_format=piece < $local_dir/words.txt | tr ' ' '\n' | sort | uniq > $local_dir/nonsilence_phones.txt
-spm_encode --model=${bpemodel}.model --output_format=piece < $local_dir/words.txt > $local_dir/lexicon_encoded
+spm_encode --model=${bpemodel}.model --output_format=piece < $train_dict/words > $train_dict/lexicon_encoded
+spm_encode --model=${bpemodel}.model --output_format=piece < $test_dict/words > $test_dict/lexicon_encoded
 
-echo "<SIL>" > $local_dir/optional_silence.txt
-(echo "<UNK>"; echo "<SIL>") > $local_dir/silence_phones.txt
+echo "<SIL>" > $train_dict/optional_silence.txt
+echo "<SIL>" > $train_dict/silence_phones.txt
 
-echo "<UNK> <UNK>" > $local_dir/lexicon.txt
-echo "<SIL> <SIL>" >> $local_dir/lexicon.txt
-paste $local_dir/words.txt $local_dir/lexicon_encoded | awk -F'\t' '{print $1 " " $2}' >> $local_dir/lexicon.txt
+echo "<SIL>" > $test_dict/optional_silence.txt
+echo "<SIL>" > $test_dict/silence_phones.txt
+
+(echo "<SIL> <SIL>"; echo "<UNK> <UNK>"; paste $train_dict/words $train_dict/lexicon_encoded | awk -F'\t' '{print $1 " " $2}') > $train_dict/lexicon.txt
+(echo "<SIL> <SIL>"; echo "<UNK> <UNK>"; paste $test_dict/words $test_dict/lexicon_encoded | awk -F'\t' '{print $1 " " $2}') > $test_dict/lexicon.txt

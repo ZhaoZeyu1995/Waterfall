@@ -14,11 +14,8 @@ nj=10
 
 do_delta=false
 
-topos="ctc mmictc 2state 2state_blk mmictc_blk"
-#topos="ctc 2state_blk mmictc_blk"
-lm_suffixes="test_tgsmall test_tglarge test_fglarge"
-#lm_suffixes="test_tgsmall"
-#lm_suffixes="test_fglarge"
+topos="ctc mmictc 2state 2state-1 3state-skip"
+lm_suffixes="test_tglarge test_fglarge"
 
 nbpe=5000
 bpemode=unigram
@@ -107,12 +104,14 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
     # download the LM resources
     local/download_lm.sh $lm_url data/local/lm
 
-    local/prepare_bpe_dict.sh --nbpe ${nbpe} --bpemode ${bpemode} data/local/dict_bpe_${nbpe} data/train_960 $vocab_file
+    local/prepare_bpe_dict.sh ${nbpe} ${bpemode}
 
-    utils/prepare_lang.sh --position-dependent-phones false data/local/dict_bpe_${nbpe} \
-        "<UNK>" data/local/lang_tmp_bpe_${nbpe} data/lang_bpe_${nbpe}
+    utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe} \
+        "<UNK>" data/local/lang_bpe_${nbpe}_tmp data/lang_bpe_${nbpe}
+    utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe}_test \
+        "<UNK>" data/local/lang_bpe_${nbpe}_test_tmp data/lang_bpe_${nbpe}_eval
 
-    local/format_lms.sh --src-dir data/lang_bpe_${nbpe} data/local/lm
+    local/format_lms.sh --src-dir data/lang_bpe_${nbpe}_eval data/local/lm
 fi
 
 
