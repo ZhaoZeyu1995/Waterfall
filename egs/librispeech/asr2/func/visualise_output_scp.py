@@ -48,6 +48,7 @@ with ReadHelper('scp:%s' % (args.output_scp)) as reader:
         save_dir = os.path.join(os.path.dirname(args.output_scp), 'outputs')
         os.makedirs(save_dir, exist_ok=True)
         plt.savefig(os.path.join(save_dir, '%s.output.pdf' % (uttid)))
+        plt.savefig(os.path.join(save_dir, '%s.output.png' % (uttid)))
         plt.close()
         count += 1
         if count >= args.number:
