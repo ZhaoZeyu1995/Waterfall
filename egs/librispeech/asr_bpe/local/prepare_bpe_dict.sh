@@ -30,7 +30,8 @@ mkdir -p $test_dict
 
 cut -f 2- -d" " data/$train_set/text > $train_dict/input.txt
 
-cut -f 2- -d" " data/$train_set/text | tr " " "\n" | grep -v "<UNK>" | sort | uniq > $train_dict/words
+(cut -f 2- -d" " data/$train_set/text; cut -f 2- -d" " data/dev_clean/text; cut -f 2- -d" " data/dev_other/text)\
+    | tr " " "\n" | grep -v "<UNK>" | sort | uniq > $train_dict/words
 (cut -f 2- -d" " data/dev_clean/text; cut -f 2- -d" " data/dev_other/text; cut -f 2- -d" " data/test_clean/text; cut -f 2- -d" " data/test_other/text) \
     | tr " " "\n" | grep -v "<UNK>" | sort | uniq > $test_dict/words
 

@@ -30,7 +30,7 @@ mkdir -p $test_dict
 
 cut -f 2- -d" " data/train_si284/text > $train_dict/input.txt
 
-cut -f 2- -d" " data/train_si284/text | tr " " "\n" | grep -v "<UNK>" | sort | uniq > $train_dict/words
+(cut -f 2- -d" " data/train_si284/text; cut -f 2- -d" " data/test_dev93/text) | tr " " "\n" | grep -v "<UNK>" | sort | uniq > $train_dict/words
 (cut -f 2- -d" " data/test_dev93/text; cut -f 2- -d" " data/test_eval92/text) | tr " " "\n" | grep -v "<UNK>" | sort | uniq > $test_dict/words
 
 bpemodel=$train_dict/train_si284_${bpemode}_${nbpe}

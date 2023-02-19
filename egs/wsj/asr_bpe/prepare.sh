@@ -67,8 +67,24 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     utils/combine_data.sh  data/${train_set} data/${base_train_set} data/${base_train_set}_0.9 data/${base_train_set}_1.1 || exit 1;
 fi
 
+feat_tr_dir=data/${train_set}/dump/delta${do_delta}; mkdir -p ${feat_tr_dir}
+feat_dt_dir=data/${train_dev}/dump/delta${do_delta}; mkdir -p ${feat_dt_dir}
+fbankdir=fbank
+
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-    echo "stage 2: Prepare Dictionary for BPE"
+    echo "stage 2: feature extraction and dump"
+    for x in train_si284_sp test_dev93 test_eval92; do
+        steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
+            data/${x} exp/make_fbank/${x} ${fbankdir}
+        steps/compute_cmvn_stats.sh data/${x}
+        utils/fix_data_dir.sh data/${x}
+        dump_utt2spk.sh data/${x} exp/dump_utt2spk/${x} data/${x}/dump/delta${do_delta}
+    done
+
+fi
+
+if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+    echo "stage 3: Prepare Dictionary for BPE"
 
     local/prepare_bpe_dict.sh ${nbpe} ${bpemode}
 
@@ -82,29 +98,17 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     local/wsj_format_local_lms.sh --lang-suffix "_bpe_${nbpe}_eval"
 fi
 
-feat_tr_dir=data/${train_set}/dump/delta${do_delta}; mkdir -p ${feat_tr_dir}
-feat_dt_dir=data/${train_dev}/dump/delta${do_delta}; mkdir -p ${feat_dt_dir}
-fbankdir=fbank
-
-if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-    echo "stage 3: feature extraction and dump"
-    for x in train_si284_sp test_dev93 test_eval92; do
-        steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
-            data/${x} exp/make_fbank/${x} ${fbankdir}
-        steps/compute_cmvn_stats.sh data/${x}
-        utils/fix_data_dir.sh data/${x}
-        dump_utt2spk.sh data/${x} exp/dump_utt2spk/${x} data/${x}/dump/delta${do_delta}
-    done
-
-fi
-
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
-    echo "stage 4: Generating different topologies and token FSTs for training and evaluation."
+    echo "stage 4: Generating different topologies and token FSTs for training."
     for topo in $topos; do
         [ -d data/lang_bpe_${nbpe}_${topo} ] && rm -rf data/lang_bpe_${nbpe}_${topo}
         cp -r data/lang_bpe_${nbpe} data/lang_bpe_${nbpe}_${topo}
         prepare_${topo}.sh data/lang_bpe_${nbpe}_${topo}
     done
+fi
+
+if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
+    echo "stage 5: Generating different topologies and token FSTs for evaluation."
     for topo in $topos; do
         for suffix in $lm_suffixes; do
             prepare_graph.sh --topo $topo data/lang_bpe_${nbpe}_eval_${suffix} data/local/lang_bpe_${nbpe}_eval_${suffix}_${topo}_tmp
