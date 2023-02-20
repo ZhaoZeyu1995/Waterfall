@@ -90,12 +90,6 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
 
     utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe} \
                     "<UNK>" data/local/dict_bpe_${nbpe}_tmp data/lang_bpe_${nbpe}
-    utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe}_test \
-                    "<UNK>" data/local/dict_bpe_${nbpe}_test_tmp data/lang_bpe_${nbpe}_eval
-
-    cp -r data/lang_bpe_${nbpe}_eval data/lang_bpe_${nbpe}_eval_bd
-    local/wsj_format_data.sh --lang-suffix "_bpe_${nbpe}_eval"
-    local/wsj_format_local_lms.sh --lang-suffix "_bpe_${nbpe}_eval"
 fi
 
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
@@ -109,6 +103,12 @@ fi
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Generating different topologies and token FSTs for evaluation."
+    utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe}_test \
+                    "<UNK>" data/local/dict_bpe_${nbpe}_test_tmp data/lang_bpe_${nbpe}_eval
+
+    cp -r data/lang_bpe_${nbpe}_eval data/lang_bpe_${nbpe}_eval_bd
+    local/wsj_format_data.sh --lang-suffix "_bpe_${nbpe}_eval"
+    local/wsj_format_local_lms.sh --lang-suffix "_bpe_${nbpe}_eval"
     for topo in $topos; do
         for suffix in $lm_suffixes; do
             prepare_graph.sh --topo $topo data/lang_bpe_${nbpe}_eval_${suffix} data/local/lang_bpe_${nbpe}_eval_${suffix}_${topo}_tmp
