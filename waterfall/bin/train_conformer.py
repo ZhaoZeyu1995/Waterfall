@@ -12,7 +12,7 @@ import random
 import numpy as np
 import logging
 from waterfall import conformer
-from waterfall.utils import datapipe, datapipe_manual_ctc, datapipe_k2
+from waterfall.utils import datapipe
 from waterfall.manual_ctc import eta_scheduler
 from waterfall.utils.specaug import SpecAugment
 import wandb
@@ -24,7 +24,7 @@ def main(args):
 
     batch_size = cfg['batch_size'] if args.batch_size == 0 else args.batch_size
 
-    if cfg['spec_aug']:
+    if 'spec_aug' in cfg.keys() and cfg['spec_aug']:
         spec_aug = SpecAugment(resize_mode=cfg['mode'],
                                max_time_warp=cfg['max_time_warp'],
                                max_freq_width=cfg['max_freq_width'],
@@ -36,39 +36,27 @@ def main(args):
     else:
         spec_aug = None
 
-    if cfg['loss'] == 'ctc':
-        Dataset = datapipe.Dataset
-        collate_fn = datapipe.collate_fn
-    elif cfg['loss'] in ['ctc_fb', 'ctc_softmax']:
-        Dataset = datapipe_manual_ctc.Dataset
-        collate_fn = datapipe_manual_ctc.collate_fn
-    elif cfg['loss'] in ['ctc_k2', 'k2']:
-        Dataset = datapipe_k2.Dataset
-        collate_fn = datapipe_k2.collate_fn_sorted
+    ctc_target = False
+    if cfg['loss'] == 'builtin_ctc':
+        ctc_target = True
 
-    if cfg['loss'] in ['ctc_k2', 'k2']:
-        train_data = Dataset(args.train_set,
-                             args.lang_dir, token_type='phones', load_wav=False, load_feats=True, transforms=spec_aug)
-        dev_data = Dataset(args.dev_set,
-                           args.lang_dir, token_type='phones', load_wav=False, load_feats=True)
-    else:
-        train_data = Dataset(args.train_set,
-                             args.lang_dir)
-        dev_data = Dataset(args.dev_set,
-                           args.lang_dir)
+    train_data = datapipe.Dataset(args.train_set,
+                                  args.lang_dir, ctc_target=ctc_target, load_feats=True)
+    dev_data = datapipe.Dataset(args.dev_set,
+                                args.lang_dir, ctc_target=ctc_target, load_feats=True)
 
     train_gen = DataLoader(train_data,
                            batch_size=batch_size,
                            shuffle=True,
                            num_workers=cfg['num_workers'],
                            persistent_workers=True,
-                           collate_fn=collate_fn)
+                           collate_fn=datapipe.collate_fn_sorted)
     dev_gen = DataLoader(dev_data,
                          batch_size=batch_size,
                          shuffle=False,
                          num_workers=cfg['num_workers'],
                          persistent_workers=True,
-                         collate_fn=collate_fn)
+                         collate_fn=datapipe.collate_fn_sorted)
 
     if 'nowarmup' in cfg and cfg['nowarmup']:
         model = conformer.ConformerModelNoWarmup(
@@ -82,6 +70,7 @@ def main(args):
                                                     save_top_k=1 if 'save_top_k' not in cfg.keys(
                                                     ) else cfg['save_top_k'],
                                                     every_n_epochs=1,
+                                                    dirpath='exp/%s/checkpoint' % (args.name),
                                                     filename='{epoch}-{valid_loss:.3f}',
                                                     mode='min')
 
@@ -90,7 +79,7 @@ def main(args):
                  pl.callbacks.RichProgressBar(),
                  pl.callbacks.RichModelSummary(max_depth=2)]
 
-    if cfg['early_stopping']:
+    if 'early_stopping' in cfg.keys() and cfg['early_stopping']:
         callbacks.append(pl.callbacks.EarlyStopping(monitor='valid_loss',
                                                     mode='min',
                                                     patience=cfg['patience'],
@@ -110,8 +99,10 @@ def main(args):
         accumulate_grad_batches = cfg['accumulate_grad_batches']
 
     logger = pl.loggers.WandbLogger(
-        project=args.name, save_dir='exp/%s' % (args.name))
-    logger.watch(model, log='all')
+        project='waterfall-%s-%s' % (os.path.basename(os.path.dirname(os.getcwd())),
+                           os.path.basename(os.getcwd())),
+        name=args.name)
+    logger.watch(model, log='all', log_graph=False)
 
     if args.checkpoint:
         if not args.load_weights_only:
@@ -122,8 +113,9 @@ def main(args):
                                  max_epochs=cfg['max_epochs'],
                                  logger=logger,
                                  accumulate_grad_batches=accumulate_grad_batches,
-                                 gradient_clip_val=cfg['grad-clip'],
-                                 gradient_clip_algorithm='norm',
+                                 gradient_clip_val=cfg['grad-clip'] if 'grad-clip' in cfg.keys(
+                                 ) else None,
+                                 gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
                                  callbacks=callbacks)
         else:
             model.load_state_dict(torch.load(args.checkpoint)['state_dict'])
@@ -133,8 +125,9 @@ def main(args):
                                  max_epochs=cfg['max_epochs'],
                                  logger=logger,
                                  accumulate_grad_batches=accumulate_grad_batches,
-                                 gradient_clip_val=cfg['grad-clip'],
-                                 gradient_clip_algorithm='norm',
+                                 gradient_clip_val=cfg['grad-clip'] if 'grad-clip' in cfg.keys(
+                                 ) else None,
+                                 gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
                                  callbacks=callbacks)
     else:
         trainer = pl.Trainer(gpus=args.gpus,
@@ -143,8 +136,9 @@ def main(args):
                              max_epochs=cfg['max_epochs'],
                              logger=logger,
                              accumulate_grad_batches=accumulate_grad_batches,
-                             gradient_clip_val=cfg['grad-clip'],
-                             gradient_clip_algorithm='norm',
+                             gradient_clip_val=cfg['grad-clip'] if 'grad-clip' in cfg.keys(
+                             ) else None,
+                             gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
                              callbacks=callbacks)
 
     trainer.fit(model, train_gen, dev_gen)

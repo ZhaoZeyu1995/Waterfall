@@ -4,7 +4,7 @@ import torch
 import os
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
-from waterfall.utils.datapipe_k2 import Dataset, collate_fn, read_dict
+from waterfall.utils.datapipe import Dataset, collate_fn_sorted, read_dict
 import argparse
 import numpy as np
 import logging
@@ -18,15 +18,16 @@ def predict(data_dir,
             model_dir,
             output_dir,
             jid,
-            gpus=0,
+            gpus=1,
             batch_size=1):
     '''
-    wav_scp, str, wav.scp file
-    lang_dir, str, lang directory
+    data_dir, str, the data directory
+    lang_dir, str, language directory
     model_dir, str, the path the of model parameters
     output_dir, str, the path where the output will be saved
     jid, int, the job id
-    batch_size, int
+    gpus: int, number of gpus for prediction, by default 1
+    batch_size, int, by default 1
     '''
 
     model = conformer.ConformerModel.load_from_checkpoint(model_dir)
@@ -42,9 +43,10 @@ def predict(data_dir,
             f.write(os.path.join(os.getcwd(), model_dir))
 
     tic = time.time()
-    data_gen = DataLoader(Dataset(data_dir, lang_dir, load_wav=False, load_feats=True),
+
+    data_gen = DataLoader(Dataset(data_dir, lang_dir, load_feats=True),
                           batch_size=batch_size,
-                          collate_fn=collate_fn,
+                          collate_fn=collate_fn_sorted,
                           num_workers=4)
     print('Predicting...')
     results = trainer.predict(model, data_gen)
@@ -74,7 +76,7 @@ def predict(data_dir,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='This programme is for decoding of CTC.')
+        description='Get the outputs (posterior probabilities) from a conformer model.')
     parser.add_argument('--data_dir', type=str)
     parser.add_argument('--lang_dir', type=str)
     parser.add_argument('--model_dir', type=str)

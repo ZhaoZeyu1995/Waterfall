@@ -331,7 +331,6 @@ class TransformerModel(pl.LightningModule):
         return log_probs, xlens, names, spks, texts
 
     def configure_optimizers(self):
-
         optimiser = torch.optim.Adam(
             self.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
         return optimiser
@@ -346,7 +345,6 @@ class TransformerModel(pl.LightningModule):
                        using_native_amp=False,
                        using_lbfgs=False):
         optimizer.step(closure=optimizer_closure)
-
         lr = (
             float(self.cfg['final_lr'])
             * min((self.trainer.global_step+1) ** (-0.5) * self.cfg['transformer-warmup-steps'] ** (0.5),
