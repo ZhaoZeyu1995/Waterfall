@@ -10,15 +10,15 @@ strategy: ddp
 # optimiser
 #optimiser: adam
 final_lr: 1e-4
-lr: 1e-4
+lr: 9e-5
 factor: 0.1
 lr_patience: 2
-min_lr: 1e-7
+min_lr: 1e-8
 # random seed
 seed: 777
 # early_stopping
 early_stopping: true
-patience: 20
+patience: 8
 # for debugging
 max_steps: -1
 max_epochs: 1000
@@ -55,4 +55,4 @@ replace_with_zero: false
 # Training
 no_den: false
 reduce_lr_after_maximum: true
-nowarmup: false
+nowarmup: true
