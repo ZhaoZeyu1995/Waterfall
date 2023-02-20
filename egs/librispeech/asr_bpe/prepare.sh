@@ -102,16 +102,16 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
 
     echo "stage 3: dictionary preparation"
     # download the LM resources
-    #local/download_lm.sh $lm_url data/local/lm
+    local/download_lm.sh $lm_url data/local/lm
 
     local/prepare_bpe_dict.sh ${nbpe} ${bpemode}
 
     utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe} \
         "<UNK>" data/local/lang_bpe_${nbpe}_tmp data/lang_bpe_${nbpe}
-    #utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe}_test \
-        #"<UNK>" data/local/lang_bpe_${nbpe}_test_tmp data/lang_bpe_${nbpe}_eval
+    utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_bpe_${nbpe}_test \
+        "<UNK>" data/local/lang_bpe_${nbpe}_test_tmp data/lang_bpe_${nbpe}_eval
 
-    #local/format_lms.sh --src-dir data/lang_bpe_${nbpe}_eval data/local/lm
+    local/format_lms.sh --src-dir data/lang_bpe_${nbpe}_eval data/local/lm
 fi
 
 
