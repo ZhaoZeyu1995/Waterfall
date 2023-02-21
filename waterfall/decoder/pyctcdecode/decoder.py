@@ -394,13 +394,13 @@ class BeamSearchDecoderCTC:
                     logit_score,
                 ) in beams:
                     # if only blank token or same token
-                    if char == "<blk>" or last_char == char:
-                        if char == "<blk>":
+                    if char == "" or last_char == char:
+                        if char == "":
                             new_end_frame = part_frames[0]
                         else:
                             new_end_frame = frame_idx + 1
                         new_part_frames = (
-                            part_frames if char == "<blk>" else (part_frames[0], new_end_frame)
+                            part_frames if char == "" else (part_frames[0], new_end_frame)
                         )
                         new_beams.append(
                             (

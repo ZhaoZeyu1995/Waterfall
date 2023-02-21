@@ -3,6 +3,12 @@
 import sys
 import os
 
+'''
+Automatically find the best wer among many different decoding settings,
+
+The input directory should contain directories which have a file 'results.wrd.txt'.
+'''
+
 result_dir = sys.argv[1]
 best_wer = None
 best_dir = None

@@ -10,6 +10,8 @@ from waterfall.decoder import pyctcdecode
 
 def process_token(token):
     if token == '<SIL>':
+        return None
+    elif token == '<blk>':
         return ''
     else:
         return token
@@ -29,7 +31,8 @@ def main(args):
         for line in f:
             token = line.strip().split()[0]
             token = process_token(token)
-            tokens.append(token)
+            if token is not None:
+                tokens.append(token)
 
     loglikeli_scp = args.log_likelihood
 
@@ -53,7 +56,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='This programme conducts the token passing algorithm and decodes a given log_likelihood scp file.')
+        description='This programme conducts the prefix beam search algorithm with a given log_likelihood scp file.')
 
     parser.add_argument(
         'log_likelihood', help='The path of log_likelihood scp', type=str)

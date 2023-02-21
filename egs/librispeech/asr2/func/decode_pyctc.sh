@@ -4,7 +4,7 @@
 . ./cmd.sh
 
 # Decoding with FST-based decoder
-# e.g. decode_fst.sh data/test_dev93 data/lang exp/ctc_LV60K_2l/version_3/decode_test_dev93
+# e.g. decode_pyctc.sh data/test_dev93 data/lang exp/ctc_LV60K_2l/version_3/decode_test_dev93
 
 
 nj=10
