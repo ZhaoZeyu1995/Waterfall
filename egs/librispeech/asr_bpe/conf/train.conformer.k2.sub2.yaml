@@ -1,8 +1,8 @@
 # loss_func
 loss: k2
 # batch
-batch_size: 4
-accumulate_grad_batches: 16
+batch_size: 2
+accumulate_grad_batches: 32
 # data pipeline
 num_workers: 4
 # multi-gpu training
