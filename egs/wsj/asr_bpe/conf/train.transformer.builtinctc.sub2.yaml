@@ -1,31 +1,30 @@
 # loss_func
-loss: k2
-output_beam: 20
+loss: builtin_ctc
 # batch
-batch_size: 3
+batch_size: 8
+accumulate_grad_batches: 8
 # data pipeline
 num_workers: 4
 # multi-gpu training
 strategy: ddp
 # optimiser
 #optimiser: adam
-final_lr: 1e-5
-#factor: 0.2
-#eps: 1e-8
-#weight_decay: 0.
-#lr_patience: 2
+final_lr: 1e-4
+lr: 1e-4
+factor: 0.1
+lr_patience: 2
+min_lr: 1e-7
 # random seed
 seed: 777
 # early_stopping
 early_stopping: true
-patience: 5
+patience: 20
 # for debugging
 max_steps: -1
 max_epochs: 1000
 
 # model
 
-accumulate_grad_batches: 12
 idim: 83
 adim: 256
 aheads: 4
@@ -36,16 +35,10 @@ elayers: 12
 eunits: 2048
 grad-clip: 5
 transformer-attn-dropout-rate: 0.0
-transformer-input-layer: conv2d
+transformer-input-layer: conv2d2
 transformer-length-normalized-loss: false
 transformer-lr: 1.0
 transformer-warmup-steps: 25000
-transformer-encoder-activation-type: swish
-transformer-encoder-pos-enc-layer-type: rel_pos
-transformer-encoder-selfattn-layer-type: rel_selfattn
-macaron-style: true
-use-cnn-module: true
-cnn-module-kernel: 31
 
 
 # SpecAugument
@@ -58,3 +51,8 @@ max_time_width: 40
 n_time_mask: 2
 inplace: true
 replace_with_zero: false
+
+# Training
+no_den: true
+reduce_lr_after_maximum: true
+nowarmup: false
