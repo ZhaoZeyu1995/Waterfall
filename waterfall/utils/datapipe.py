@@ -386,6 +386,13 @@ class Dataset(torch.utils.data.Dataset):
                     self.lang.idx2phone[pid])
                 tids.append(self.lang.token2idx[self.lang.idx2phone[pid]])
 
+        # Check if the num_frame is enough, otherwise we just take the last item in the dataset to keep the same number of samples in one epoch
+        # Here we set the ratio 8.5 because a common experiment setting is with a subsampling facotr of 4 and the 2-state topology.
+        # Thus, 8.5 is a safe choice.
+        # This leads to some loss of data by approximately 4% of the training data in WSJ. with BPE 100.
+        if int(num_frame / 8.5) < len(pids):
+            return self.__getitem__(idx-1)
+
         sample = {
             # Note this is for CTC and reference only but not for DWFST-based training
             'target_length': len(pids),
