@@ -14,6 +14,7 @@ lr: 1e-4
 factor: 0.1
 lr_patience: 2
 min_lr: 1e-7
+save_top_k: 10
 # random seed
 seed: 777
 # early_stopping
