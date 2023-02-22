@@ -35,7 +35,7 @@ elayers: 12
 eunits: 2048
 grad-clip: 5
 transformer-attn-dropout-rate: 0.0
-transformer-input-layer: conv2d
+transformer-input-layer: conv2d6
 transformer-length-normalized-loss: false
 transformer-lr: 1.0
 transformer-warmup-steps: 25000
@@ -47,8 +47,8 @@ use-cnn-module: true
 cnn-module-kernel: 31
 
 
-# Datapipe
-ratio_th: 8.5
+# Datapipe 
+ratio_th: 12.5
 # SpecAugument
 spec_aug: true
 mode: "PIL"

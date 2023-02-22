@@ -303,6 +303,7 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self,
                  data_dir,
                  lang_dir,
+                 ratio_th=None,
                  ctc_target=False,
                  load_wav=False,
                  load_feats=False,
@@ -329,6 +330,7 @@ class Dataset(torch.utils.data.Dataset):
         '''
         self.data_dir = data_dir
         self.lang_dir = lang_dir
+        self.ratio_th = None
         self.lang = Lang(self.lang_dir)
 
         self.wav_scp = os.path.join(self.data_dir, 'wav.scp')
@@ -387,11 +389,12 @@ class Dataset(torch.utils.data.Dataset):
                 tids.append(self.lang.token2idx[self.lang.idx2phone[pid]])
 
         # Check if the num_frame is enough, otherwise we just take the last item in the dataset to keep the same number of samples in one epoch
-        # Here we set the ratio 8.5 because a common experiment setting is with a subsampling facotr of 4 and the 2-state topology.
-        # Thus, 8.5 is a safe choice.
+        # A typical value is 8.5 because a common experiment setting is a subsampling facotr of 4 and the 2-state topology.
         # This leads to some loss of data by approximately 4% of the training data in WSJ. with BPE 100.
-        if int(num_frame / 8.5) < len(pids):
-            return self.__getitem__(idx-1)
+        # However, we should definitely keep ratio_th as None during evaluation.
+        if self.ratio_th:
+            if int(num_frame / self.ratio_th) < len(pids):
+                return self.__getitem__(idx-1)
 
         sample = {
             # Note this is for CTC and reference only but not for DWFST-based training

@@ -41,9 +41,15 @@ def main(args):
         ctc_target = True
 
     train_data = datapipe.Dataset(args.train_set,
-                                  args.lang_dir, ctc_target=ctc_target, load_feats=True)
+                                  args.lang_dir,
+                                  ctc_target=ctc_target,
+                                  load_feats=True,
+                                  ratio_th=None if 'ratio_th' not in cfg.keys() else cfg['ratio_th'])
     dev_data = datapipe.Dataset(args.dev_set,
-                                args.lang_dir, ctc_target=ctc_target, load_feats=True)
+                                args.lang_dir,
+                                ctc_target=ctc_target,
+                                load_feats=True,
+                                ratio_th=None if 'ratio_th' not in cfg.keys() else cfg['ratio_th'])
 
     train_gen = DataLoader(train_data,
                            batch_size=batch_size,

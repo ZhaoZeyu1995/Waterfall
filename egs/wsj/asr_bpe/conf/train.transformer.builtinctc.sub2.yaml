@@ -41,6 +41,8 @@ transformer-lr: 1.0
 transformer-warmup-steps: 25000
 
 
+#Datapipe
+ratio_th: 4.5
 # SpecAugument
 spec_aug: true
 mode: "PIL"

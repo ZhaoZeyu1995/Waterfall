@@ -1,5 +1,5 @@
 # loss_func
-loss: builtin_ctc
+loss: k2
 # batch
 batch_size: 4
 accumulate_grad_batches: 16
@@ -35,7 +35,7 @@ elayers: 12
 eunits: 2048
 grad-clip: 5
 transformer-attn-dropout-rate: 0.0
-transformer-input-layer: conv2d
+transformer-input-layer: conv2d8
 transformer-length-normalized-loss: false
 transformer-lr: 1.0
 transformer-warmup-steps: 25000
@@ -48,7 +48,7 @@ cnn-module-kernel: 31
 
 
 # Datapipe
-ratio_th: 8.5
+ratio_th: 16.5
 # SpecAugument
 spec_aug: true
 mode: "PIL"

@@ -41,9 +41,15 @@ def main(args):
         ctc_target = True
 
     train_data = datapipe.Dataset(args.train_set,
-                                  args.lang_dir, ctc_target=ctc_target, load_feats=True)
+                                  args.lang_dir,
+                                  ctc_target=ctc_target,
+                                  load_feats=True,
+                                  ratio_th=None if 'ratio_th' not in cfg.keys() else cfg['ratio_th'])
     dev_data = datapipe.Dataset(args.dev_set,
-                                args.lang_dir, ctc_target=ctc_target, load_feats=True)
+                                args.lang_dir,
+                                ctc_target=ctc_target,
+                                load_feats=True,
+                                ratio_th=None if 'ratio_th' not in cfg.keys() else cfg['ratio_th'])
 
     train_gen = DataLoader(train_data,
                            batch_size=batch_size,
@@ -70,7 +76,8 @@ def main(args):
                                                     save_top_k=1 if 'save_top_k' not in cfg.keys(
                                                     ) else cfg['save_top_k'],
                                                     every_n_epochs=1,
-                                                    dirpath='exp/%s/checkpoint' % (args.name),
+                                                    dirpath='exp/%s/checkpoint' % (
+                                                        args.name),
                                                     filename='{epoch}-{valid_loss:.3f}',
                                                     mode='min')
 
@@ -92,7 +99,8 @@ def main(args):
                                                         patience=cfg['patience_eta'],
                                                         verbose=True))
 
-    accumulate_grad_batches = 1 # by default 1, args.accumulate_grad_batches has more priority than cfg['accumulate_grad_batches']
+    # by default 1, args.accumulate_grad_batches has more priority than cfg['accumulate_grad_batches']
+    accumulate_grad_batches = 1
     if args.accumulate_grad_batches != 1:
         accumulate_grad_batches = args.accumulate_grad_batches
     elif 'accumulate_grad_batches' in cfg.keys():
@@ -100,7 +108,7 @@ def main(args):
 
     logger = pl.loggers.WandbLogger(
         project='waterfall-%s-%s' % (os.path.basename(os.path.dirname(os.getcwd())),
-                           os.path.basename(os.getcwd())),
+                                     os.path.basename(os.getcwd())),
         name=args.name)
     logger.watch(model, log='all', log_graph=False)
 

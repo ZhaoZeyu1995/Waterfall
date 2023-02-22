@@ -47,6 +47,8 @@ use-cnn-module: true
 cnn-module-kernel: 31
 
 
+# Datapipe
+ratio_th: 8.5
 # SpecAugument
 spec_aug: true
 mode: "PIL"
