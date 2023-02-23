@@ -330,7 +330,7 @@ class Dataset(torch.utils.data.Dataset):
         '''
         self.data_dir = data_dir
         self.lang_dir = lang_dir
-        self.ratio_th = None
+        self.ratio_th = ratio_th
         self.lang = Lang(self.lang_dir)
 
         self.wav_scp = os.path.join(self.data_dir, 'wav.scp')
