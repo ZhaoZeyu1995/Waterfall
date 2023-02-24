@@ -44,11 +44,13 @@ def main(args):
                                   args.lang_dir,
                                   ctc_target=ctc_target,
                                   load_feats=True,
+                                  transform=spec_aug,
                                   ratio_th=None if 'ratio_th' not in cfg.keys() else cfg['ratio_th'])
     dev_data = datapipe.Dataset(args.dev_set,
                                 args.lang_dir,
                                 ctc_target=ctc_target,
                                 load_feats=True,
+                                transform=None,
                                 ratio_th=None if 'ratio_th' not in cfg.keys() else cfg['ratio_th'])
 
     train_gen = DataLoader(train_data,

@@ -27,7 +27,14 @@ for decode_set in $decode_sets; do
     data_dir=data/$decode_set
     predict_dir=$exp_dir/decode_${decode_set}_${suffix}
     if [ ! -d $predict_dir ]; then
-        cp -r $exp_dir/predict_${decode_set} $predict_dir
+        mkdir -p $predict_dir
+        for f in $exp_dir/predict_${decode_set}/*; do
+            if [[ $f == *.ark ]]; then
+                continue
+            fi
+            [ -f $f ] || continue
+            [ -f $f ] && [ ! -f $predict_dir/$(basename $f) ] && cp $f $predict_dir
+        done
     fi
     for beam in $beams; do 
         for maxac in $max_active; do 
