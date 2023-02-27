@@ -2,7 +2,7 @@
 loss: builtin_ctc
 # batch
 batch_size: 4
-accumulate_grad_batches: 16
+accumulate_grad_batches: 32
 # data pipeline
 num_workers: 4
 # multi-gpu training
