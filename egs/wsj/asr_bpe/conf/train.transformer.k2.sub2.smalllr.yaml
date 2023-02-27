@@ -1,0 +1,61 @@
+# loss_func
+loss: k2
+# batch
+batch_size: 8
+accumulate_grad_batches: 8
+# data pipeline
+num_workers: 4
+# multi-gpu training
+strategy: ddp
+# optimiser
+#optimiser: adam
+final_lr: 5e-5
+lr: 1e-4
+factor: 0.1
+lr_patience: 2
+min_lr: 1e-7
+save_top_k: 10
+# random seed
+seed: 777
+# early_stopping
+early_stopping: true
+patience: 20
+# for debugging
+max_steps: -1
+max_epochs: 1000
+
+# model
+
+idim: 83
+adim: 256
+aheads: 4
+dlayers: 6
+dropout-rate: 0.1
+dunits: 2048
+elayers: 12
+eunits: 2048
+grad-clip: 5
+transformer-attn-dropout-rate: 0.0
+transformer-input-layer: conv2d2
+transformer-length-normalized-loss: false
+transformer-lr: 1.0
+transformer-warmup-steps: 25000
+
+
+# Datapipe
+ratio_th: 4.5
+# SpecAugument
+spec_aug: true
+mode: "PIL"
+max_time_warp: 5
+max_freq_width: 30
+n_freq_mask: 2
+max_time_width: 40
+n_time_mask: 2
+inplace: true
+replace_with_zero: false
+
+# Training
+no_den: false
+reduce_lr_after_maximum: true
+nowarmup: false
