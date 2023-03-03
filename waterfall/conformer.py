@@ -290,7 +290,6 @@ class Encoder(torch.nn.Module):
 
         """
         if isinstance(self.embed, (Conv2dSubsampling, Conv2dSubsampling2, Conv2dSubsampling6, Conv2dSubsampling8, VGG2L)):
-            print('self.embed', self.embed)
             xs, masks = self.embed(xs, masks)
         else:
             xs = self.embed(xs)
