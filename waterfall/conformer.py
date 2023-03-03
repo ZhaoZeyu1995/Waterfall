@@ -125,7 +125,6 @@ class Encoder(torch.nn.Module):
             raise ValueError("unknown pos_enc_layer: " + pos_enc_layer_type)
 
         self.conv_subsampling_factor = 1
-        self.batch_norm = None
         if input_layer == "linear":
             self.embed = torch.nn.Sequential(
                 torch.nn.Linear(idim, attention_dim),
@@ -141,7 +140,6 @@ class Encoder(torch.nn.Module):
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
             self.conv_subsampling_factor = 4
-            self.batch_norm = torch.nn.BatchNorm1d(attention_dim)
         elif input_layer == "conv2d2":
             self.embed = Conv2dSubsampling2(
                 idim,
@@ -150,7 +148,6 @@ class Encoder(torch.nn.Module):
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
             self.conv_subsampling_factor = 2
-            self.batch_norm = torch.nn.BatchNorm1d(attention_dim)
         elif input_layer == "conv2d6":
             self.embed = Conv2dSubsampling6(
                 idim,
@@ -159,7 +156,6 @@ class Encoder(torch.nn.Module):
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
             self.conv_subsampling_factor = 6
-            self.batch_norm = torch.nn.BatchNorm1d(attention_dim)
         elif input_layer == "conv2d8":
             self.embed = Conv2dSubsampling8(
                 idim,
@@ -168,7 +164,6 @@ class Encoder(torch.nn.Module):
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
             self.conv_subsampling_factor = 8
-            self.batch_norm = torch.nn.BatchNorm1d(attention_dim)
         elif input_layer == "vgg2l":
             self.embed = VGG2L(idim, attention_dim)
             self.conv_subsampling_factor = 4
@@ -293,9 +288,6 @@ class Encoder(torch.nn.Module):
             xs, masks = self.embed(xs, masks)
         else:
             xs = self.embed(xs)
-
-        if self.batch_norm is not None:
-            xs = (self.batch_norm(xs[0].permute(0, 2, 1)).permute(0, 2, 1), xs[1])
 
         if self.intermediate_layers is None:
             xs, masks = self.encoders(xs, masks)
