@@ -128,7 +128,10 @@ def main(args):
                                  gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
                                  callbacks=callbacks)
         else:
-            model.load_state_dict(torch.load(args.checkpoint)['state_dict'])
+            checkpoint = torch.load(args.checkpoint, map_location=torch.device('cpu'))
+            model.load_state_dict(checkpoint['state_dict'])
+            del checkpoint
+            torch.cuda.empty_cache()
             trainer = pl.Trainer(gpus=args.gpus,
                                  strategy=cfg['strategy'],
                                  deterministic=False,
