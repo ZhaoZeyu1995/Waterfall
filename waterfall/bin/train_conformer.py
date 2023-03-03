@@ -24,7 +24,7 @@ def main(args):
 
     batch_size = cfg['batch_size'] if args.batch_size == 0 else args.batch_size
 
-    if 'spec_aug' in cfg.keys() and cfg['spec_aug']:
+    if args.spec_aug and 'spec_aug' in cfg.keys() and cfg['spec_aug']:
         spec_aug = SpecAugment(resize_mode=cfg['mode'],
                                max_time_warp=cfg['max_time_warp'],
                                max_freq_width=cfg['max_freq_width'],
@@ -182,6 +182,7 @@ if __name__ == '__main__':
         '--batch_size', help='The batch_size for training.', type=int, default=0)
     parser.add_argument(
         '--accumulate_grad_batches', help='The number of batches for gradient accumulation.', type=int, default=1)
+    parser.add_argument('--spec_aug', help='Whether or not use spec_aug.', type=bool, default=True)
 
     args = parser.parse_args()
     main(args)
