@@ -290,13 +290,13 @@ class Encoder(torch.nn.Module):
 
         """
         if isinstance(self.embed, (Conv2dSubsampling, Conv2dSubsampling2, Conv2dSubsampling6, Conv2dSubsampling8, VGG2L)):
+            print('self.embed', self.embed)
             xs, masks = self.embed(xs, masks)
         else:
             xs = self.embed(xs)
 
         if self.batch_norm is not None:
-            xs = self.batch_norm(xs.permute(0, 2, 1))
-            xs = xs.permute(0, 2, 1)
+            xs = (self.batch_norm(xs[0].permute(0, 2, 1)).permute(0, 2, 1), xs[1])
 
         if self.intermediate_layers is None:
             xs, masks = self.encoders(xs, masks)
