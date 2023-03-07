@@ -362,8 +362,13 @@ class ConformerModelNoWarmup(pl.LightningModule):
             cnn_module_kernel=cfg['cnn-module-kernel'],
             stochastic_depth_rate=0.0 if 'stochastic-depth-rate' not in cfg.keys() else cfg['stochastic-depth-rate'])
 
+        
         self.batch_norm = nn.BatchNorm1d(cfg['adim'])
-        self.output_layer = nn.Linear(cfg['adim'], self.output_dim)
+
+        if 'sub2' in self.cfg.keys() and self.cfg['sub2']:
+            self.output_layer = nn.Linear(2*cfg['adim'], self.output_dim)
+        else:
+            self.output_layer = nn.Linear(cfg['adim'], self.output_dim)
 
         if self.cfg['loss'] == 'builtin_ctc':
             self.lang = Lang(lang_dir)
@@ -474,6 +479,22 @@ class ConformerModelNoWarmup(pl.LightningModule):
         texts = batch['texts']
         log_probs, xlens = self(feats, feats_lens)
         return log_probs, xlens, names, spks, texts
+
+    def freeze_conformer(self):
+        '''
+        Freezes the conformer encoder but not the input layer
+        '''
+        print('Freezing Conformer Encoder')
+        for para in self.encoder.parameters():
+            para.requires_grad = False
+        for para in self.encoder.embed.parameters():
+            para.requires_grad = False
+        for para in self.encoder.encoders[-1].parameters():
+            para.requires_grad = True
+        for para in self.encoder.encoders[-2].parameters():
+            para.requires_grad = True
+        for para in self.encoder.encoders[-3].parameters():
+            para.requires_grad = True
 
     def configure_optimizers(self):
         optimiser = torch.optim.Adam(
@@ -656,3 +677,14 @@ class ConformerModel(pl.LightningModule):
 
         for pg in optimizer.param_groups:
             pg["lr"] = lr
+    def freeze_conformer(self):
+        '''
+        Freezes the conformer encoder but not the input layer
+        '''
+        print('Freezing Conformer Encoder')
+        print('Pass')
+        # for para in self.encoder.parameters():
+            # para.requires_grad = False
+        # for para in self.encoder.embed.parameters():
+            # para.requires_grad = False
+

@@ -17,6 +17,14 @@ from waterfall.manual_ctc import eta_scheduler
 from waterfall.utils.specaug import SpecAugment
 import wandb
 
+def load_from_espnet(args):
+    print("Loading from espnet checkpoint %s" % (args.checkpoint))
+    state_dict = torch.load(args.checkpoint, map_location=torch.device('cpu'))
+    for key in list(state_dict.keys()):
+        if key.startswith('decoder'):
+            del state_dict[key]
+    return state_dict
+
 
 def main(args):
     cfg = yaml.load(open(args.config), Loader=yaml.loader.SafeLoader)
@@ -128,9 +136,16 @@ def main(args):
                                  gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
                                  callbacks=callbacks)
         else:
-            checkpoint = torch.load(args.checkpoint, map_location=torch.device('cpu'))
-            model.load_state_dict(checkpoint['state_dict'])
-            del checkpoint
+            if args.load_from_espnet:
+                state_dict = load_from_espnet(args)
+                model.load_state_dict(state_dict, strict=False)
+                del state_dict
+                if args.freeze_conformer:
+                    model.freeze_conformer()
+            else:
+                checkpoint = torch.load(args.checkpoint, map_location=torch.device('cpu'))
+                model.load_state_dict(checkpoint['state_dict'])
+                del checkpoint
             torch.cuda.empty_cache()
             trainer = pl.Trainer(gpus=args.gpus,
                                  strategy=cfg['strategy'],
@@ -183,6 +198,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--accumulate_grad_batches', help='The number of batches for gradient accumulation.', type=int, default=1)
     parser.add_argument('--spec_aug', help='Whether or not use spec_aug.', type=bool, default=True)
+    parser.add_argument('--load_from_espnet', help='Whether or not load from espnet.', type=bool, default=False)
+    parser.add_argument('--freeze_conformer', help='Whether or not freese conformer.', type=bool, default=True)
 
     args = parser.parse_args()
     main(args)

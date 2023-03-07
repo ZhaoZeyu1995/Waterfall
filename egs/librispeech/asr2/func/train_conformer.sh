@@ -16,6 +16,7 @@ load_weights_only=
 batch_size=0
 accumulate_grad_batches=1
 spec_aug=true
+load_from_espnet=false
 
 . utils/parse_options.sh || exit 1
 
@@ -38,7 +39,7 @@ if [ -z $checkpoint ]; then
     train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --batch_size $batch_size --accumulate_grad_batches $accumulate_grad_batches --spec_aug $spec_aug
 else
     if [ $load_weights_only ]; then
-        train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --checkpoint $checkpoint --load_weights_only true --batch_size $batch_size --accumulate_grad_batches $accumulate_grad_batches --spec_aug $spec_aug
+        train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --checkpoint $checkpoint --load_weights_only true --batch_size $batch_size --accumulate_grad_batches $accumulate_grad_batches --spec_aug $spec_aug --load_from_espnet $load_from_espnet
     else
         train_conformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --checkpoint $checkpoint --batch_size $batch_size --accumulate_grad_batches $accumulate_grad_batches --spec_aug $spec_aug
     fi
