@@ -3,6 +3,7 @@ import openfst_python as fst
 import numpy as np
 import kaldiio
 import argparse
+import logging
 
 
 '''
@@ -179,23 +180,24 @@ class Decoder(object):
     def __init__(self,
                  fst_path: str,
                  topo_fst_path: str,
-                 word_table: str,
                  acoustic_scale: float,
                  beam: float,
                  max_active: int,
                  topo_beam: float,
-                 topo_max_active: int
+                 topo_max_active: int,
+                 word_table=None,
                  ):
         self.fst_path = fst_path
         self.topo_fst_path = topo_fst_path
-        print('Reading the fst from {}'.format(self.fst_path))
+        logging.info('Reading the fst from {}'.format(self.fst_path))
         self.fst = fst.Fst.read(self.fst_path)
-        print('Removing epsilon transitions from the fst')
+        logging.info('Removing epsilon transitions from the fst')
         self.fst.rmepsilon()
-        print('Reading the topology fst from {}'.format(self.topo_fst_path))
+        logging.info('Reading the topology fst from {}'.format(self.topo_fst_path))
         self.topo_fst = fst.Fst.read(self.topo_fst_path)
-        print('Reading the word table from {}'.format(word_table))
-        self.word_table = fst.SymbolTable.read_text(word_table)
+        if word_table is not None:
+            logging.info('Reading the word table from {}'.format(word_table))
+            self.word_table = fst.SymbolTable.read_text(word_table)
 
         self.acoustic_scale = acoustic_scale
         self.beam = beam
@@ -204,7 +206,7 @@ class Decoder(object):
         self.topo_max_active = topo_max_active
 
         # Add epsilon self-loop to each state in self.fst
-        print('Adding epsilon self-loop to each state in the fst')
+        logging.info('Adding epsilon self-loop to each state in the fst')
         for state in self.fst.states():
             self.fst.add_arc(state, fst.Arc(
                 0, 0, fst.Weight(self.fst.weight_type(), 0.), state))
@@ -216,16 +218,16 @@ class Decoder(object):
         self.log_probs = - self.acoustic_scale * log_probs
         self.num_frames = self.log_probs.shape[0]
         for frame in range(self.num_frames):
-            print('Processing frame {}'.format(frame))
-            print('The number of tokens in the current frame is {}'.format(
+            logging.info('Processing frame {}'.format(frame))
+            logging.info('The number of tokens in the current frame is {}'.format(
                 len(self.tokens)))
             for idx, (state, token) in enumerate(self.tokens.items()):
-                print('The number of topo_tokens in the %d-th token at state %d is %d' %
+                logging.info('The number of topo_tokens in the %d-th token at state %d is %d' %
                       (idx, int(state), len(token.topo_tokens)))
             self.best_cost = float('inf')
             self.process_frame(frame)
             self.process_non_emitting()
-            print('The number of tokens in the new frame is {}'.format(
+            logging.info('The number of tokens in the new frame is {}'.format(
                 len(self.new_tokens)))
             self.prune()
             self.tokens = self.new_tokens
@@ -434,8 +436,8 @@ def decode_scp(scp_path: str, decoder: Decoder):
         for key, value in reader:
             log_probs = value
             path = decoder.decode(log_probs)
-            print(key, path)
-            print("Length of the path: ", len(path))
+            logging.info(key, path)
+            logging.info("Length of the path: ", len(path))
             break
 
 
