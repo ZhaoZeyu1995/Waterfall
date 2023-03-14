@@ -234,7 +234,6 @@ class Decoder(object):
             self.new_tokens = dict()
         self.finalize_decoding()
         # return the best word sequence
-        return self.get_best_word_seq()
 
     def init_decoder(self):
         self.tokens = dict()

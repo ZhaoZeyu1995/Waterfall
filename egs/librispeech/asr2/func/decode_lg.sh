@@ -55,7 +55,7 @@ fi
 acwt=$acoustic_scale
 maxac=$max_active
 
-decode_dir=$predict_dir/acwt_${acwt}-maxac_${maxac}-beam_${beam}
+decode_dir=$predict_dir/acwt_${acwt}-maxac_${maxac}-beam_${beam}-topo_maxac_${topo_max_active}-topo_beam_${topo_beam}
 mkdir -p $decode_dir
 run.pl JOB=1:$nj $decode_dir/split${nj}/log/decode_tlg.JOB.log func/decode_lg.py --max_active $maxac --acoustic_scale $acwt --beam $beam --topo_max_active $topo_max_active --topo_beam $topo_beam --word_symbol_table ${lang_dir}/words.txt ${t_graph} ${lg_graph} $predict_dir/split$nj/output.JOB.scp  $decode_dir/split$nj/hyp.JOB.wrd
 
