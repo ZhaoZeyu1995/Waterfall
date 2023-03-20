@@ -169,7 +169,8 @@ class Encoder(torch.nn.Module):
             self.conv_subsampling_factor = 4
         elif input_layer == "embed":
             self.embed = torch.nn.Sequential(
-                torch.nn.Embedding(idim, attention_dim, padding_idx=padding_idx),
+                torch.nn.Embedding(idim, attention_dim,
+                                   padding_idx=padding_idx),
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
         elif isinstance(input_layer, torch.nn.Module):
@@ -203,7 +204,8 @@ class Encoder(torch.nn.Module):
                 attention_dropout_rate,
             )
         elif selfattention_layer_type == "rel_selfattn":
-            logging.info("encoder self-attention layer type = relative self-attention")
+            logging.info(
+                "encoder self-attention layer type = relative self-attention")
             assert pos_enc_layer_type == "rel_pos"
             encoder_selfattn_layer = RelPositionMultiHeadedAttention
             encoder_selfattn_layer_args = (
@@ -213,7 +215,8 @@ class Encoder(torch.nn.Module):
                 zero_triu,
             )
         else:
-            raise ValueError("unknown encoder_attn_layer: " + selfattention_layer_type)
+            raise ValueError("unknown encoder_attn_layer: " +
+                             selfattention_layer_type)
 
         # feed-forward module definition
         if positionwise_layer_type == "linear":
@@ -253,8 +256,10 @@ class Encoder(torch.nn.Module):
                 attention_dim,
                 encoder_selfattn_layer(*encoder_selfattn_layer_args),
                 positionwise_layer(*positionwise_layer_args),
-                positionwise_layer(*positionwise_layer_args) if macaron_style else None,
-                convolution_layer(*convolution_layer_args) if use_cnn_module else None,
+                positionwise_layer(
+                    *positionwise_layer_args) if macaron_style else None,
+                convolution_layer(
+                    *convolution_layer_args) if use_cnn_module else None,
                 dropout_rate,
                 normalize_before,
                 concat_after,
@@ -315,10 +320,12 @@ class Encoder(torch.nn.Module):
 
                         if isinstance(xs, tuple):
                             x, pos_emb = xs[0], xs[1]
-                            x = x + self.conditioning_layer(intermediate_result)
+                            x = x + \
+                                self.conditioning_layer(intermediate_result)
                             xs = (x, pos_emb)
                         else:
-                            xs = xs + self.conditioning_layer(intermediate_result)
+                            xs = xs + \
+                                self.conditioning_layer(intermediate_result)
 
         if isinstance(xs, tuple):
             xs = xs[0]
@@ -329,6 +336,7 @@ class Encoder(torch.nn.Module):
         if self.intermediate_layers is not None:
             return xs, masks, intermediate_outputs
         return xs, masks
+
 
 class ConformerModelNoWarmup(pl.LightningModule):
     def __init__(self,
@@ -344,40 +352,36 @@ class ConformerModelNoWarmup(pl.LightningModule):
 
         self.encoder = Encoder(
             idim=input_dim,
-            attention_dim=cfg['adim'],
-            attention_heads=cfg['aheads'],
-            linear_units=cfg['eunits'],
-            num_blocks=cfg['elayers'],
-            input_layer=cfg['transformer-input-layer'],
-            dropout_rate=cfg['dropout-rate'],
-            positional_dropout_rate=cfg['dropout-rate'],
-            attention_dropout_rate=cfg['transformer-attn-dropout-rate'],
-            pos_enc_layer_type=cfg['transformer-encoder-pos-enc-layer-type'],
-            selfattention_layer_type=cfg['transformer-encoder-selfattn-layer-type'],
-            activation_type=cfg['transformer-encoder-activation-type'],
-            macaron_style=cfg['macaron-style'],
-            use_cnn_module=cfg['use-cnn-module'],
-            zero_triu=False if 'zero-triu' not in cfg.keys(
-            ) else cfg['zero-triu'],
-            cnn_module_kernel=cfg['cnn-module-kernel'],
-            stochastic_depth_rate=0.0 if 'stochastic-depth-rate' not in cfg.keys() else cfg['stochastic-depth-rate'])
+            attention_dim=cfg.model.adim,
+            attention_heads=cfg.model.aheads,
+            linear_units=cfg.model.eunits,
+            num_blocks=cfg.model.elayers,
+            input_layer=cfg.model.transformer_input_layer,
+            dropout_rate=cfg.model.dropout_rate,
+            positional_dropout_rate=cfg.model.dropout_rate,
+            attention_dropout_rate=cfg.model.transformer_attn_dropout_rate,
+            pos_enc_layer_type=cfg.model.transformer_pos_enc_layer_type,
+            selfattention_layer_type=cfg.model.transformer_encoder_selfattn_layer_type,
+            activation_type=cfg.model.transformer_encoder_activation_type,
+            macaron_style=cfg.model.macaron_style,
+            use_cnn_module=cfg.model.use_cnn_module,
+            zero_triu=False if 'zero-triu' not in cfg.model.keys(
+            ) else cfg.model.zero_triu,
+            cnn_module_kernel=cfg.model.cnn_module_kernel,
+            stochastic_depth_rate=0.0 if 'stochastic-depth-rate' not in cfg.model.keys() else cfg.model.stochastic_depth_rate)
 
-        
-        self.batch_norm = nn.BatchNorm1d(cfg['adim'])
+        self.batch_norm = nn.BatchNorm1d(cfg.model.adim)
 
-        if 'sub2' in self.cfg.keys() and self.cfg['sub2']:
-            self.output_layer = nn.Linear(2*cfg['adim'], self.output_dim)
-        else:
-            self.output_layer = nn.Linear(cfg['adim'], self.output_dim)
+        self.output_layer = nn.Linear(cfg.model.adim, self.output_dim)
 
-        if self.cfg['loss'] == 'builtin_ctc':
+        if self.cfg.training.loss == 'builtin_ctc':
             self.lang = Lang(lang_dir)
-        elif self.cfg['loss'] == 'k2':
+        elif self.cfg.training.loss == 'k2':
             self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
 
-        if self.cfg['loss'] in ['k2']:
+        if self.cfg.training.loss in ['k2']:
             wavs = batch['feats']
             lengths = batch['feats_lens']
             word_ids = batch['word_ids']
@@ -403,9 +407,9 @@ class ConformerModelNoWarmup(pl.LightningModule):
                                         target_lengths=target_lengths,
                                         reduction='mean')
 
-            if 'no_den' in self.cfg.keys() and self.cfg['no_den']:
+            if 'no_den' in self.cfg.training.keys() and self.cfg.training.no_den:
                 loss = numerator
-            elif 'no_den_grad' in self.cfg.keys() and self.cfg['no_den_grad']:
+            elif 'no_den_grad' in self.cfg.training.keys() and self.cfg.training.no_den_grad:
                 with torch.no_grad():
                     den_decoding_graph = k2.create_fsa_vec(
                         [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
@@ -418,7 +422,6 @@ class ConformerModelNoWarmup(pl.LightningModule):
                                                   reduction='mean')
                 loss = numerator - denominator
             else:
-
                 den_decoding_graph = k2.create_fsa_vec(
                     [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
 
@@ -429,7 +432,7 @@ class ConformerModelNoWarmup(pl.LightningModule):
                                               target_lengths=target_lengths,
                                               reduction='mean')
                 loss = numerator - denominator
-        elif self.cfg['loss'] == 'builtin_ctc':
+        elif self.cfg.training.loss == 'builtin_ctc':
             wavs = batch['feats']
             lengths = batch['feats_lens']
             target_lengths = batch['target_lengths']
@@ -440,7 +443,7 @@ class ConformerModelNoWarmup(pl.LightningModule):
 
         else:
             raise Exception('Unrecognised Loss Function %s' %
-                            (self.cfg['loss']))
+                            (self.cfg['training']['loss']))
 
         return loss
 
@@ -480,31 +483,15 @@ class ConformerModelNoWarmup(pl.LightningModule):
         log_probs, xlens = self(feats, feats_lens)
         return log_probs, xlens, names, spks, texts
 
-    def freeze_conformer(self):
-        '''
-        Freezes the conformer encoder but not the input layer
-        '''
-        print('Freezing Conformer Encoder')
-        for para in self.encoder.parameters():
-            para.requires_grad = False
-        for para in self.encoder.embed.parameters():
-            para.requires_grad = False
-        for para in self.encoder.encoders[-1].parameters():
-            para.requires_grad = True
-        for para in self.encoder.encoders[-2].parameters():
-            para.requires_grad = True
-        for para in self.encoder.encoders[-3].parameters():
-            para.requires_grad = True
-
     def configure_optimizers(self):
         optimiser = torch.optim.Adam(
-            self.parameters(), lr=float(self.cfg['lr']))
+            self.parameters(), lr=self.cfg['training']['lr'])
         return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser,
                                                                                       'min',
-                                                                                      patience=self.cfg['lr_patience'],
+                                                                                      patience=self.cfg['training']['lr_patience'],
                                                                                       verbose=True,
-                                                                                      factor=self.cfg['factor'],
-                                                                                      min_lr=float(self.cfg['min_lr'])),
+                                                                                      factor=self.cfg['training']['factor'],
+                                                                                      min_lr=self.cfg['training']['min_lr']),
                               'monitor': 'valid_loss'}]
 
 
@@ -522,36 +509,36 @@ class ConformerModel(pl.LightningModule):
 
         self.encoder = Encoder(
             idim=input_dim,
-            attention_dim=cfg['adim'],
-            attention_heads=cfg['aheads'],
-            linear_units=cfg['eunits'],
-            num_blocks=cfg['elayers'],
-            input_layer=cfg['transformer-input-layer'],
-            dropout_rate=cfg['dropout-rate'],
-            positional_dropout_rate=cfg['dropout-rate'],
-            attention_dropout_rate=cfg['transformer-attn-dropout-rate'],
-            pos_enc_layer_type=cfg['transformer-encoder-pos-enc-layer-type'],
-            selfattention_layer_type=cfg['transformer-encoder-selfattn-layer-type'],
-            activation_type=cfg['transformer-encoder-activation-type'],
-            macaron_style=cfg['macaron-style'],
-            use_cnn_module=cfg['use-cnn-module'],
-            zero_triu=False if 'zero-triu' not in cfg.keys(
-            ) else cfg['zero-triu'],
-            cnn_module_kernel=cfg['cnn-module-kernel'],
-            stochastic_depth_rate=0.0 if 'stochastic-depth-rate' not in cfg.keys() else cfg['stochastic-depth-rate'])
+            attention_dim=cfg.model.adim,
+            attention_heads=cfg.model.aheads,
+            linear_units=cfg.model.eunits,
+            num_blocks=cfg.model.elayers,
+            input_layer=cfg.model['transformer-input-layer'],
+            dropout_rate=cfg.model['dropout-rate'],
+            positional_dropout_rate=cfg.model['dropout-rate'],
+            attention_dropout_rate=cfg.model['transformer-attn-dropout-rate'],
+            pos_enc_layer_type=cfg.model['transformer-encoder-pos-enc-layer-type'],
+            selfattention_layer_type=cfg.model['transformer-encoder-selfattn-layer-type'],
+            activation_type=cfg.model['transformer-encoder-activation-type'],
+            macaron_style=cfg.model['macaron-style'],
+            use_cnn_module=cfg.model['use-cnn-module'],
+            zero_triu=False if 'zero-triu' not in cfg.model.keys(
+            ) else cfg.model.zero_triu,
+            cnn_module_kernel=cfg.model['cnn-module-kernel'],
+            stochastic_depth_rate=0.0 if 'stochastic-depth-rate' not in cfg.model.keys() else cfg.model['stochastic-depth-rate'])
 
-        
-        self.batch_norm = nn.BatchNorm1d(cfg['adim'])
-        self.output_layer = nn.Linear(cfg['adim'], self.output_dim)
+        self.batch_norm = nn.BatchNorm1d(cfg.model.adim)
 
-        if self.cfg['loss'] == 'builtin_ctc':
+        self.output_layer = nn.Linear(cfg.model.adim, self.output_dim)
+
+        if self.cfg.training.loss == 'builtin_ctc':
             self.lang = Lang(lang_dir)
-        elif self.cfg['loss'] == 'k2':
+        elif self.cfg.training.loss == 'k2':
             self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
 
-        if self.cfg['loss'] in ['k2']:
+        if self.cfg.training.loss in ['k2']:
             wavs = batch['feats']
             lengths = batch['feats_lens']
             word_ids = batch['word_ids']
@@ -577,9 +564,9 @@ class ConformerModel(pl.LightningModule):
                                         target_lengths=target_lengths,
                                         reduction='mean')
 
-            if 'no_den' in self.cfg.keys() and self.cfg['no_den']:
+            if 'no_den' in self.cfg.training.keys() and self.cfg.training.no_den:
                 loss = numerator
-            elif 'no_den_grad' in self.cfg.keys() and self.cfg['no_den_grad']:
+            elif 'no_den_grad' in self.cfg.training.keys() and self.cfg.training.no_den_grad:
                 with torch.no_grad():
                     den_decoding_graph = k2.create_fsa_vec(
                         [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
@@ -592,7 +579,6 @@ class ConformerModel(pl.LightningModule):
                                                   reduction='mean')
                 loss = numerator - denominator
             else:
-
                 den_decoding_graph = k2.create_fsa_vec(
                     [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
 
@@ -603,7 +589,7 @@ class ConformerModel(pl.LightningModule):
                                               target_lengths=target_lengths,
                                               reduction='mean')
                 loss = numerator - denominator
-        elif self.cfg['loss'] == 'builtin_ctc':
+        elif self.cfg.training.loss == 'builtin_ctc':
             wavs = batch['feats']
             lengths = batch['feats_lens']
             target_lengths = batch['target_lengths']
@@ -614,7 +600,7 @@ class ConformerModel(pl.LightningModule):
 
         else:
             raise Exception('Unrecognised Loss Function %s' %
-                            (self.cfg['loss']))
+                            (self.cfg['training']['loss']))
 
         return loss
 
@@ -670,21 +656,11 @@ class ConformerModel(pl.LightningModule):
                        using_lbfgs=False):
         optimizer.step(closure=optimizer_closure)
         lr = (
-            float(self.cfg['final_lr'])
-            * min((self.trainer.global_step+1) ** (-0.5) * self.cfg['transformer-warmup-steps'] ** (0.5),
-                  (self.trainer.global_step+1) * self.cfg['transformer-warmup-steps'] ** (-1))
+            self.cfg.training['final_lr']
+            * min((self.trainer.global_step+1) ** (-0.5) * self.cfg.training['transformer-warmup-steps'] ** (0.5),
+                  (self.trainer.global_step+1) * self.cfg.training['transformer-warmup-steps'] ** (-1))
         )
 
         for pg in optimizer.param_groups:
             pg["lr"] = lr
-    def freeze_conformer(self):
-        '''
-        Freezes the conformer encoder but not the input layer
-        '''
-        print('Freezing Conformer Encoder')
-        print('Pass')
-        # for para in self.encoder.parameters():
-            # para.requires_grad = False
-        # for para in self.encoder.embed.parameters():
-            # para.requires_grad = False
 
