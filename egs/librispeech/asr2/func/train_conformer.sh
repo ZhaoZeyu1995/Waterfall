@@ -21,7 +21,7 @@ fi
 
 opts="$@ hydra/job_logging=none hydra/hydra_logging=none"
 
-echo "./train_conformer.py $opts"
+echo "train_conformer.py $opts"
 
-./train_conformer.py $opts
+train_conformer.py $opts
 #./train_conformer.py data.lang_dir=data/lang_bpe_5000_ctc training.gpus=7 --cfg job

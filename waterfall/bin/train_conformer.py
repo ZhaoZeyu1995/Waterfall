@@ -30,7 +30,7 @@ def load_from_espnet(args):
     return state_dict
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+@hydra.main(version_base=None, config_path=os.path.join(os.getcwd(), 'conf'), config_name="config")
 def main(cfg):
     pl.seed_everything(cfg.training.seed, workers=True)
 
