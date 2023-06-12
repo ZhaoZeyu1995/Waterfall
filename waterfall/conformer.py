@@ -382,13 +382,13 @@ class ConformerModelNoWarmup(pl.LightningModule):
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
 
         if self.cfg.training.loss in ['k2']:
-            wavs = batch['feats']
+            feats = batch['feats']
             lengths = batch['feats_lens']
             word_ids = batch['word_ids']
             target_lengths = batch['target_lengths']
 
-            batch_num = int(wavs.shape[0])
-            log_probs, xlens = self(wavs, lengths)
+            batch_num = int(feats .shape[0])
+            log_probs, xlens = self(feats , lengths)
 
             supervision_segments = torch.tensor([[i, 0, xlens[i]] for i in range(batch_num)],
                                                 device='cpu',
@@ -433,11 +433,11 @@ class ConformerModelNoWarmup(pl.LightningModule):
                                               reduction='mean')
                 loss = numerator - denominator
         elif self.cfg.training.loss == 'builtin_ctc':
-            wavs = batch['feats']
+            feats = batch['feats']
             lengths = batch['feats_lens']
             target_lengths = batch['target_lengths']
             targets_ctc = batch['targets_ctc']
-            log_probs, xlens = self(wavs, lengths)
+            log_probs, xlens = self(feats , lengths)
             loss = F.ctc_loss(log_probs.permute(1, 0, 2), targets_ctc, xlens,
                               target_lengths, reduction='mean')
 
@@ -539,13 +539,13 @@ class ConformerModel(pl.LightningModule):
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
 
         if self.cfg.training.loss in ['k2']:
-            wavs = batch['feats']
+            feats = batch['feats']
             lengths = batch['feats_lens']
             word_ids = batch['word_ids']
             target_lengths = batch['target_lengths']
 
-            batch_num = int(wavs.shape[0])
-            log_probs, xlens = self(wavs, lengths)
+            batch_num = int(feats .shape[0])
+            log_probs, xlens = self(feats , lengths)
 
             supervision_segments = torch.tensor([[i, 0, xlens[i]] for i in range(batch_num)],
                                                 device='cpu',
@@ -590,11 +590,11 @@ class ConformerModel(pl.LightningModule):
                                               reduction='mean')
                 loss = numerator - denominator
         elif self.cfg.training.loss == 'builtin_ctc':
-            wavs = batch['feats']
+            feats = batch['feats']
             lengths = batch['feats_lens']
             target_lengths = batch['target_lengths']
             targets_ctc = batch['targets_ctc']
-            log_probs, xlens = self(wavs, lengths)
+            log_probs, xlens = self(feats , lengths)
             loss = F.ctc_loss(log_probs.permute(1, 0, 2), targets_ctc, xlens,
                               target_lengths, reduction='mean')
 

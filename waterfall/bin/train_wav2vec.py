@@ -11,7 +11,7 @@ import yaml
 import random
 import numpy as np
 import logging
-from waterfall import transformer
+from waterfall import wav2vec
 from waterfall.utils import datapipe
 from waterfall.utils.specaug import SpecAugment
 import wandb
@@ -26,18 +26,6 @@ def main(cfg):
 
     batch_size = cfg.training.batch_size
 
-    if cfg.training.spec_aug:
-        spec_aug = SpecAugment(resize_mode=cfg.specaug.mode,
-                               max_time_warp=cfg.specaug.max_time_warp,
-                               max_freq_width=cfg.specaug.max_freq_width,
-                               n_freq_mask=cfg.specaug.n_freq_mask,
-                               max_time_width=cfg.specaug.max_time_width,
-                               n_time_mask=cfg.specaug.n_time_mask,
-                               inplace=cfg.specaug.inplace,
-                               replace_with_zero=cfg.specaug.replace_with_zero)
-    else:
-        spec_aug = None
-
     ctc_target = False
     if cfg.training.loss == 'builtin_ctc':
         ctc_target = True
@@ -45,13 +33,13 @@ def main(cfg):
     train_data = datapipe.Dataset(to_absolute_path(cfg.data.train_set),
                                   to_absolute_path(cfg.data.lang_dir),
                                   ctc_target=ctc_target,
-                                  load_feats=True,
-                                  transforms=spec_aug,
+                                  load_wav=True,
+                                  transforms=None,
                                   ratio_th=cfg.model.ratio_th)
     dev_data = datapipe.Dataset(to_absolute_path(cfg.data.dev_set),
                                 to_absolute_path(cfg.data.lang_dir),
                                 ctc_target=ctc_target,
-                                load_feats=True,
+                                load_wav=True,
                                 transforms=None,
                                 ratio_th=cfg.model.ratio_th)
 
@@ -69,10 +57,10 @@ def main(cfg):
                          collate_fn=datapipe.collate_fn_sorted)
 
     if cfg.training.nowarmup:
-        model = transformer.TransformerModelNoWarmup(
+        model = conformer.ConformerModelNoWarmup(
             cfg.model.idim, train_data.lang.num_nn_output, cfg=cfg, lang_dir=cfg.data.lang_dir)
     else:
-        model = transformer.TransformerModel(
+        model = conformer.ConformerModel(
             cfg.model.idim, train_data.lang.num_nn_output, cfg=cfg, lang_dir=cfg.data.lang_dir)
 
     # os.makedirs('exp/%s' % (args.name), exist_ok=True)
@@ -150,25 +138,4 @@ def main(cfg):
 
 
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--train_set', help='Training set directory.', type=str)
-    parser.add_argument('--dev_set', help='Dev set directory.', type=str)
-    parser.add_argument('--lang_dir', help='Lang directory.', type=str)
-    parser.add_argument('--config', help='Configuration file path.', type=str)
-    parser.add_argument(
-        '--name', help='Experiment name. Models will be stored in exp/$name/version*', type=str, default='ctc')
-    parser.add_argument(
-        '--gpus', help='Number of GPUs that used for training.', type=int, default=1)
-    parser.add_argument(
-        '--checkpoint', help='Resume from checkpoint.', type=str, default=None)
-    parser.add_argument('--load_weights_only',
-                        help='Whether or not load weights only from checkpoint.', type=bool, default=False)
-    parser.add_argument(
-        '--batch_size', help='The batch_size for training.', type=int, default=0)
-    parser.add_argument(
-        '--accumulate_grad_batches', help='The number of batches for gradient accumulation.', type=int, default=1)
-
-    args = parser.parse_args()
-    main(args)
+    main()

@@ -334,7 +334,8 @@ class Dataset(torch.utils.data.Dataset):
         self.lang = Lang(self.lang_dir)
 
         self.wav_scp = os.path.join(self.data_dir, 'wav.scp')
-        self.utt2wav = kaldiio.load_scp(self.wav_scp)
+        if load_wav:
+            self.utt2wav = kaldiio.load_scp(self.wav_scp)
 
         self.uttids = read_keys(self.wav_scp)
         self.utt2spk = read_dict(os.path.join(self.data_dir, 'utt2spk'))
@@ -355,7 +356,9 @@ class Dataset(torch.utils.data.Dataset):
         else:
             self.dump_feats = os.path.join(
                 self.data_dir, 'dump', 'deltafalse', 'feats.scp')
-        self.utt2feats = kaldiio.load_scp(self.dump_feats)
+
+        if load_feats:
+            self.utt2feats = kaldiio.load_scp(self.dump_feats)
 
         self.transforms = transforms
 

@@ -4,7 +4,7 @@ import os
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 import argparse
 import yaml
@@ -13,21 +13,11 @@ import numpy as np
 import logging
 from waterfall import conformer
 from waterfall.utils import datapipe
-from waterfall.manual_ctc import eta_scheduler
 from waterfall.utils.specaug import SpecAugment
 import wandb
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import get_original_cwd, to_absolute_path
-
-
-def load_from_espnet(args):
-    print("Loading from espnet checkpoint %s" % (args.checkpoint))
-    state_dict = torch.load(args.checkpoint, map_location=torch.device('cpu'))
-    for key in list(state_dict.keys()):
-        if key.startswith('decoder'):
-            del state_dict[key]
-    return state_dict
 
 
 @hydra.main(version_base=None, config_path=os.path.join(os.getcwd(), 'conf'), config_name="config")
@@ -89,7 +79,8 @@ def main(cfg):
     model_checkpoint = pl.callbacks.ModelCheckpoint(monitor='valid_loss',
                                                     save_top_k=cfg.training.save_top_k,
                                                     every_n_epochs=1,
-                                                    dirpath=os.path.join(cfg.training.output_dir, 'checkpoints'),
+                                                    dirpath=os.path.join(
+                                                        cfg.training.output_dir, 'checkpoints'),
                                                     filename='{epoch}-{valid_loss:.4f}',
                                                     mode='min')
 
