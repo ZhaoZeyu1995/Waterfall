@@ -51,7 +51,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
                 para.requires_grad = False
             for i in range(1, self.cfg.model['finetune_layers']+1):
                 for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
-                para.requires_grad = True
+                    para.requires_grad = True
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
         if self.cfg.training.loss in ["k2"]:
@@ -280,7 +280,7 @@ class Wav2VecModel(pl.LightningModule):
                 para.requires_grad = False
             for i in range(1, self.cfg.model['finetune_layers']+1):
                 for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
-                para.requires_grad = True
+                    para.requires_grad = True
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
         if self.cfg.training.loss in ["k2"]:
