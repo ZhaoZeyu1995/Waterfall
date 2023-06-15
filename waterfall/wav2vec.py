@@ -117,8 +117,8 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
                 )
                 loss = numerator - denominator
         elif self.cfg.training.loss == "builtin_ctc":
-            wavs = batch["feats"]
-            lengths = batch["feats_lens"]
+            wavs = batch["wavs"]
+            lengths = batch["wav_lens"]
             target_lengths = batch["target_lengths"]
             targets_ctc = batch["targets_ctc"]
             log_probs, xlens = self(wavs, lengths)
@@ -342,8 +342,8 @@ class Wav2VecModel(pl.LightningModule):
                 )
                 loss = numerator - denominator
         elif self.cfg.training.loss == "builtin_ctc":
-            wavs = batch["feats"]
-            lengths = batch["feats_lens"]
+            wavs = batch["wavs"]
+            lengths = batch["wav_lens"]
             target_lengths = batch["target_lengths"]
             targets_ctc = batch["targets_ctc"]
             log_probs, xlens = self(wavs, lengths)
