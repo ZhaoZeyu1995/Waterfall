@@ -1,44 +1,27 @@
 #!/bin/bash
 
-# Train a transformer model with the given configuration file
-# e.g train_transformer.sh --train_config conf/train.yaml --expname ctc --gpus 4 data/train data/dev data/lang
+# Train a transformer  model with a given configuration 
+# e.g train_transformer.sh data=train960 model=transformer.sub4 training=convention specaug=convention
 
 . ./path.sh || exit 1
 . ./env.sh || exit 1
 . ./cmd.sh || exit 1
 
+set -e
+set -u
+set -o pipefail
 
-train_config="conf/train_k2.yaml"
-expname=ctc
-gpus=4
-checkpoint=
-load_weights_only=
-batch_size=0
-accumulate_grad_batches=1
-
-. utils/parse_options.sh || exit 1
-
-if [ $# != 3 ]; then
-  echo "Usage: func/train_transformer.sh [options] <train_set> <dev_set> <lang_dir>"
-  echo "     --train_config              # default: conf/train.yaml, the training configuration file."
-  echo "     --expname                   # default: ctc, the output directory name in exp."
-  echo "     --gpus                      # default: 4, the number of gpus used for training."
+if [[ $@ == '--help' ]]; then
+  echo "Usage: train_transformer.sh <options>"
+  echo "     --options                  # default: Null, the options that can be recognised by hydra."
   echo "e.g.:"
-  echo " $0 --train_config conf/train_k2.yaml --gpus 4 --expname ctc data/train data/dev data/lang"
-  exit 1
+  echo " $0 data=train960 model=transformer.sub4 training=convention specaug=convention"
+  exit 0
 fi
 
-train_set=$1
-dev_set=$2
-lang_dir=$3
+opts="$@ hydra/job_logging=none hydra/hydra_logging=none"
 
+echo "train_transformer.py $opts"
 
-if [ -z $checkpoint ]; then
-    train_transformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --batch_size $batch_size --accumulate_grad_batches $accumulate_grad_batches
-else
-    if [ $load_weights_only ]; then
-        train_transformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --checkpoint $checkpoint --load_weights_only true --batch_size $batch_size --accumulate_grad_batches $accumulate_grad_batches
-    else
-        train_transformer.py --train_set $train_set --dev_set $dev_set --lang_dir $lang_dir --config $train_config --name $expname --gpus $gpus --checkpoint $checkpoint --batch_size $batch_size --accumulate_grad_batches $accumulate_grad_batches
-    fi
-fi
+train_transformer.py $opts
+

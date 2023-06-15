@@ -28,11 +28,11 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         self.cfg = cfg
         self.save_hyperparameters()
 
-        bundle = getattr(torchaudio.pipelines, cfg["model"])
+        bundle = getattr(torchaudio.pipelines, cfg.model["model"])
         self.wav2vec = bundle.get_model()
         self.freese_and_init()
-        self.encoder_output_size = self.cfg["encoder_output_size"]
-        self.batch_norm = nn.BatchNorm1d(cfg.model.adim)
+        self.encoder_output_size = self.cfg.model["encoder_output_size"]
+        self.batch_norm = nn.BatchNorm1d(self.encoder_output_size)
         self.output_layer = nn.Linear(self.encoder_output_size, self.output_dim)
 
         if self.cfg.training.loss == "builtin_ctc":
@@ -253,11 +253,11 @@ class Wav2VecModel(pl.LightningModule):
         self.cfg = cfg
         self.save_hyperparameters()
 
-        bundle = getattr(torchaudio.pipelines, cfg["model"])
+        bundle = getattr(torchaudio.pipelines, cfg.model["model"])
         self.wav2vec = bundle.get_model()
         self.freese_and_init()
-        self.encoder_output_size = self.cfg["encoder_output_size"]
-        self.batch_norm = nn.BatchNorm1d(cfg.model.adim)
+        self.encoder_output_size = self.cfg.model["encoder_output_size"]
+        self.batch_norm = nn.BatchNorm1d(self.encoder_output_size)
         self.output_layer = nn.Linear(self.encoder_output_size, self.output_dim)
 
         if self.cfg.training.loss == "builtin_ctc":

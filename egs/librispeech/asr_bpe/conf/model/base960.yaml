@@ -1,0 +1,2 @@
+model: WAV2VEC2_BASE
+encoder_output_size: 768
