@@ -1,3 +1,4 @@
 model: WAV2VEC2_BASE
 encoder_output_size: 768
+finetune_layers: 2
 ratio_th: 4

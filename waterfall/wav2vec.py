@@ -42,12 +42,16 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
 
     def freese_and_init(self):
         self.wav2vec.aux = None  # get rid of the output linear layer in wav2vec model
-        # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part
+        # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part 
+        # if we don't set model.finetune_layers with 
         for para in self.wav2vec.feature_extractor.parameters():
             para.requires_grad = False
-        # for i in range(1, self.cfg['finetune_layers']+1):
-        # for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
-        # para.requires_grad = True
+        if "finetune_layers" in self.cfg.model.keys() and self.cfg.model['finetune_layers'] > 0:
+            for para in self.wav2vec.encoder.parameters():
+                para.requires_grad = False
+            for i in range(1, self.cfg.model['finetune_layers']+1):
+                for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
+                para.requires_grad = True
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
         if self.cfg.training.loss in ["k2"]:
@@ -267,12 +271,16 @@ class Wav2VecModel(pl.LightningModule):
 
     def freese_and_init(self):
         self.wav2vec.aux = None  # get rid of the output linear layer in wav2vec model
-        # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part
+        # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part 
+        # if we don't set model.finetune_layers with 
         for para in self.wav2vec.feature_extractor.parameters():
             para.requires_grad = False
-        # for i in range(1, self.cfg['finetune_layers']+1):
-        # for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
-        # para.requires_grad = True
+        if "finetune_layers" in self.cfg.model.keys() and self.cfg.model['finetune_layers'] > 0:
+            for para in self.wav2vec.encoder.parameters():
+                para.requires_grad = False
+            for i in range(1, self.cfg.model['finetune_layers']+1):
+                for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
+                para.requires_grad = True
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
         if self.cfg.training.loss in ["k2"]:
