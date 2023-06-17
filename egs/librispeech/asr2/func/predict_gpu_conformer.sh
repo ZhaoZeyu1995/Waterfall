@@ -4,8 +4,8 @@
 # e.g. predict_gpu_conformer.sh --gpus 1 data/dev data/lang exp/ctc/version_0/checkpoints/epoch=26-vald_loss=0.0000.ckpt/ exp/ctc/version_0
 
 
-. ./path.sh
-. ./cmd.sh
+. ./path.sh || exit 1
+. ./cmd.sh || exit 1
 
 gpus=1
 batch_size=10
@@ -17,7 +17,7 @@ if [ $# != 4 ]; then
   echo "     --gpus                      # default: 1, the number of gpus used for predicting."
   echo "     --batch_size                # default: 10, batch_size."
   echo "e.g.:"
-  echo " $0 --gpus 1 data/train data/lang path/to/model path/for/output"
+  echo " $0 --gpus 1 data/train data/lang path/to/model path/to/output"
   exit 1
 fi
 
@@ -28,5 +28,5 @@ output_dir=$4
 
 mkdir -p $output_dir
 
-predict_conformer.py --data_dir $data_dir --lang_dir $lang_dir --model_dir $model_dir --output_dir $output_dir --jid 1 --gpus $gpus --batch_size $batch_size > $output_dir/predict_gpu.log 2>&1 
+predict_conformer.py --data_dir $data_dir --lang_dir $lang_dir --model_dir $model_dir --output_dir $output_dir --jid 1 --gpus $gpus --batch_size $batch_size > $output_dir/predict_gpu_conformer.log 2>&1 
 
