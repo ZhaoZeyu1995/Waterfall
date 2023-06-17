@@ -143,8 +143,8 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
 
     def forward(self, x, xlens):
         x, xlens = self.wav2vec(x, xlens)
-        if "extra_subsample" in self.cfg.model.keys() self.cfg.model["extra_subsample"] > 1:
-            x = x[:, :2:, :]
+        if "extra_subsample" in self.cfg.model.keys() and self.cfg.model["extra_subsample"] > 1:
+            x = x[:, ::2, :]
             xlens = xlens // 2
         x = self.batch_norm(x.permute(0, 2, 1))
         x = x.permute(0, 2, 1)
@@ -375,8 +375,8 @@ class Wav2VecModel(pl.LightningModule):
 
     def forward(self, x, xlens):
         x, xlens = self.wav2vec(x, xlens)
-        if "extra_subsample" in self.cfg.model.keys() self.cfg.model["extra_subsample"] > 1:
-            x = x[:, :2:, :]
+        if "extra_subsample" in self.cfg.model.keys() and self.cfg.model["extra_subsample"] > 1:
+            x = x[:, ::2, :]
             xlens = xlens // 2
         x = self.batch_norm(x.permute(0, 2, 1))
         x = x.permute(0, 2, 1)
