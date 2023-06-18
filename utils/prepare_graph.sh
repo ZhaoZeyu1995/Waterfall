@@ -3,9 +3,10 @@
 # This programme prepares T.fst and TLG.fst and other graphs for training and decoding 
 
 
-
 topo=
 nondeterministic=false
+
+
 
 . ./utils/parse_options.sh
 
@@ -19,7 +20,7 @@ tmpdir=$2
 dir=$3
 
 if [ $# -lt 2 ]; then
-    echo 'Usage: prepare_graph.sh [--topo ctc|mmictc|2state|2state-1|3state-skip] <srcdir> <tmpdir> [<desdir>]'
+    echo 'Usage: prepare_graph.sh [--topo ctc|mmictc|mmictc-1|2state|2state-1|3state-skip|3state-skip-1|3state-skip-2] <srcdir> <tmpdir> [<desdir>]'
     echo 'By default, <desdir>=${srcdir}_${topo}'
     exit 1
 fi
@@ -50,6 +51,10 @@ echo "Done!"
 echo "Preparing decoding graph TLG.fst in ${dir}..."
 fsttablecompose $dir/L_disambig.fst $dir/G.fst | fstdeterminizestar --use-log=true | \
   fstminimizeencoded | fstarcsort --sort_type=ilabel > $tmpdir/LG.fst || exit 1;
+
+if [[ $topo == 'mmictc-1' ]]; then
+    nondeterministic=true
+fi
 
 if [[ $nondeterministic == 'false' ]]; then 
     fsttablecompose $dir/T.fst $tmpdir/LG.fst | fstdeterminizestar --use-log=true | \
