@@ -44,7 +44,7 @@ def predict(data_dir,
 
     tic = time.time()
 
-    data_gen = DataLoader(Dataset(data_dir, lang_dir, load_wavs=True),
+    data_gen = DataLoader(Dataset(data_dir, lang_dir, load_wav=True),
                           batch_size=batch_size,
                           collate_fn=collate_fn_sorted,
                           num_workers=4)
