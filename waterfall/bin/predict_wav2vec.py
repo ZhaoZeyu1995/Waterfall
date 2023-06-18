@@ -54,7 +54,6 @@ def predict(data_dir,
 
     with open(os.path.join(output_dir, 'ref.wrd.trn.%d' % (jid)), 'w') as y:
         yc = ''
-        results = trainer.predict(model, data_gen)
         with WriteHelper('ark,scp:%s,%s' % (os.path.join(os.getcwd(), output_dir, 'output.%d.ark' % (jid)), os.path.join(os.getcwd(), output_dir, 'output.%d.scp' % (jid)))) as writer:
             for item in results:
                 log_probs = item[0]
