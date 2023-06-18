@@ -378,6 +378,7 @@ class Dataset(torch.utils.data.Dataset):
             if word in self.lang.word2idx.keys():
                 wid = self.lang.word2idx[word]
                 word_ids.append(wid)
+                # wid must be in self.lang.lexicon.keys(), which is guaranteed by how lang dir is generated
                 pids.extend(self.lang.lexicon[wid])
             else:
                 # by default all unknown words are denoted by <UNK>
