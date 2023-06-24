@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get output of the neural network by GPUs
-# e.g. predict.sh path/to/model
+# e.g. predict_wav2vec.sh
 
 
 . ./path.sh
@@ -22,5 +22,5 @@ for decode_set in $decode_sets; do
     data_dir=data/$decode_set
     output_dir=$exp_dir/predict_${decode_set}
     mkdir -p $output_dir
-    func/predict_gpu.sh --gpus $gpus --batch_size $batch_size $data_dir $lang_dir $model_dir $output_dir
+    func/predict_gpu_wav2vec.sh --gpus $gpus --batch_size $batch_size $data_dir $lang_dir $model_dir $output_dir
 done
