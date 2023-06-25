@@ -33,17 +33,26 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         self.freese_and_init()
         self.encoder_output_size = self.cfg.model["encoder_output_size"]
         self.batch_norm = nn.BatchNorm1d(self.encoder_output_size)
-        self.output_layer = nn.Linear(self.encoder_output_size, self.output_dim)
+        self.output_layer = nn.Linear(
+            self.encoder_output_size, self.output_dim)
 
         if self.cfg.training.loss == "builtin_ctc":
             self.lang = Lang(lang_dir)
         elif self.cfg.training.loss == "k2":
             self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
 
+        # SpecAugment with TimeMasking and FrequencyMasking only but no TimeStretching
+        # Implemented by torchaudio.transforms.TimeMasking and torchaudio.transforms.FrequencyMasking
+        if 'spec_augment' in self.cfg.model.keys() and self.cfg.model['spec_augment']:
+            self.time_masking = torchaudio.transforms.TimeMasking(
+                time_mask_param=cfg.model["time_mask_param"], p=0.3)
+            self.freq_masking = torchaudio.transforms.FrequencyMasking(
+                freq_mask_param=cfg.model["freq_mask_param"])
+
     def freese_and_init(self):
         self.wav2vec.aux = None  # get rid of the output linear layer in wav2vec model
-        # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part 
-        # if we don't set model.finetune_layers with 
+        # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part
+        # if we don't set model.finetune_layers with a positive integer
         for para in self.wav2vec.feature_extractor.parameters():
             para.requires_grad = False
         if "finetune_layers" in self.cfg.model.keys() and self.cfg.model['finetune_layers'] > 0:
@@ -94,7 +103,8 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
             ):
                 with torch.no_grad():
                     den_decoding_graph = k2.create_fsa_vec(
-                        [self.lang.topo.to(log_probs.device) for _ in range(batch_num)]
+                        [self.lang.topo.to(log_probs.device)
+                         for _ in range(batch_num)]
                     )
 
                     assert den_decoding_graph.requires_grad == False
@@ -108,7 +118,8 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
                 loss = numerator - denominator
             else:
                 den_decoding_graph = k2.create_fsa_vec(
-                    [self.lang.topo.to(log_probs.device) for _ in range(batch_num)]
+                    [self.lang.topo.to(log_probs.device)
+                     for _ in range(batch_num)]
                 )
 
                 assert den_decoding_graph.requires_grad == False
@@ -136,13 +147,22 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
 
         else:
             raise Exception(
-                "Unrecognised Loss Function %s" % (self.cfg["training"]["loss"])
+                "Unrecognised Loss Function %s" % (
+                    self.cfg["training"]["loss"])
             )
 
         return loss
 
     def forward(self, x, xlens):
-        x, xlens = self.wav2vec(x, xlens)
+        if "spec_augment" in self.cfg.model.keys() and self.cfg.model["spec_augment"] and self.training:
+            x, xlens = self.wav2vec.feature_extractor(x, xlens)
+            x = x.permute(0, 2, 1)
+            x = self.time_masking(x)
+            x = self.freq_masking(x)
+            x = x.permute(0, 2, 1)
+            x = self.wav2vec.encoder(x, xlens)
+        else:
+            x, xlens = self.wav2vec(x, xlens)
         if "extra_subsample" in self.cfg.model.keys() and self.cfg.model["extra_subsample"] > 1:
             x = x[:, ::int(self.cfg.model["extra_subsample"]), :]
             xlens = xlens // int(self.cfg.model["extra_subsample"])
@@ -209,7 +229,8 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         loss = self.compute_loss(batch, batch_idx)
-        self.log("valid_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
+        self.log("valid_loss", loss, prog_bar=True,
+                 on_epoch=True, sync_dist=True)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -228,7 +249,8 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         return log_probs, xlens, names, spks, texts
 
     def configure_optimizers(self):
-        optimiser = torch.optim.Adam(self.parameters(), lr=self.cfg["training"]["lr"])
+        optimiser = torch.optim.Adam(
+            self.parameters(), lr=self.cfg["training"]["lr"])
         return [optimiser], [
             {
                 "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -265,17 +287,26 @@ class Wav2VecModel(pl.LightningModule):
         self.freese_and_init()
         self.encoder_output_size = self.cfg.model["encoder_output_size"]
         self.batch_norm = nn.BatchNorm1d(self.encoder_output_size)
-        self.output_layer = nn.Linear(self.encoder_output_size, self.output_dim)
+        self.output_layer = nn.Linear(
+            self.encoder_output_size, self.output_dim)
 
         if self.cfg.training.loss == "builtin_ctc":
             self.lang = Lang(lang_dir)
         elif self.cfg.training.loss == "k2":
             self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
 
+        # SpecAugment with TimeMasking and FrequencyMasking only but no TimeStretching
+        # Implemented by torchaudio.transforms.TimeMasking and torchaudio.transforms.FrequencyMasking
+        if 'spec_augment' in self.cfg.model.keys() and self.cfg.model['spec_augment']:
+            self.time_masking = torchaudio.transforms.TimeMasking(
+                time_mask_param=cfg.model["time_mask_param"], p=0.3)
+            self.freq_masking = torchaudio.transforms.FrequencyMasking(
+                freq_mask_param=cfg.model["freq_mask_param"])
+
     def freese_and_init(self):
         self.wav2vec.aux = None  # get rid of the output linear layer in wav2vec model
-        # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part 
-        # if we don't set model.finetune_layers with 
+        # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part
+        # if we don't set model.finetune_layers with a positive integer
         for para in self.wav2vec.feature_extractor.parameters():
             para.requires_grad = False
         if "finetune_layers" in self.cfg.model.keys() and self.cfg.model['finetune_layers'] > 0:
@@ -326,7 +357,8 @@ class Wav2VecModel(pl.LightningModule):
             ):
                 with torch.no_grad():
                     den_decoding_graph = k2.create_fsa_vec(
-                        [self.lang.topo.to(log_probs.device) for _ in range(batch_num)]
+                        [self.lang.topo.to(log_probs.device)
+                         for _ in range(batch_num)]
                     )
 
                     assert den_decoding_graph.requires_grad == False
@@ -340,7 +372,8 @@ class Wav2VecModel(pl.LightningModule):
                 loss = numerator - denominator
             else:
                 den_decoding_graph = k2.create_fsa_vec(
-                    [self.lang.topo.to(log_probs.device) for _ in range(batch_num)]
+                    [self.lang.topo.to(log_probs.device)
+                     for _ in range(batch_num)]
                 )
 
                 assert den_decoding_graph.requires_grad == False
@@ -368,13 +401,22 @@ class Wav2VecModel(pl.LightningModule):
 
         else:
             raise Exception(
-                "Unrecognised Loss Function %s" % (self.cfg["training"]["loss"])
+                "Unrecognised Loss Function %s" % (
+                    self.cfg["training"]["loss"])
             )
 
         return loss
 
     def forward(self, x, xlens):
-        x, xlens = self.wav2vec(x, xlens)
+        if "spec_augment" in self.cfg.model.keys() and self.cfg.model["spec_augment"] and self.training:
+            x, xlens = self.wav2vec.feature_extractor(x, xlens)
+            x = x.permute(0, 2, 1)
+            x = self.time_masking(x)
+            x = self.freq_masking(x)
+            x = x.permute(0, 2, 1)
+            x = self.wav2vec.encoder(x, xlens)
+        else:
+            x, xlens = self.wav2vec(x, xlens)
         if "extra_subsample" in self.cfg.model.keys() and self.cfg.model["extra_subsample"] > 1:
             x = x[:, ::int(self.cfg.model["extra_subsample"]), :]
             xlens = xlens // int(self.cfg.model["extra_subsample"])
@@ -441,7 +483,8 @@ class Wav2VecModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         loss = self.compute_loss(batch, batch_idx)
-        self.log("valid_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
+        self.log("valid_loss", loss, prog_bar=True,
+                 on_epoch=True, sync_dist=True)
         return loss
 
     def test_step(self, batch, batch_idx):
