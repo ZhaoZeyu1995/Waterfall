@@ -304,6 +304,7 @@ class Dataset(torch.utils.data.Dataset):
                  data_dir,
                  lang_dir,
                  ratio_th=None,
+                 max_duration=None,
                  ctc_target=False,
                  load_wav=False,
                  load_feats=False,
@@ -331,6 +332,7 @@ class Dataset(torch.utils.data.Dataset):
         self.data_dir = data_dir
         self.lang_dir = lang_dir
         self.ratio_th = ratio_th
+        self.max_duration = max_duration
         self.lang = Lang(self.lang_dir)
 
         self.wav_scp = os.path.join(self.data_dir, 'wav.scp')
@@ -398,6 +400,10 @@ class Dataset(torch.utils.data.Dataset):
         # However, we should definitely keep ratio_th as None during evaluation.
         if self.ratio_th:
             if int(num_frame / self.ratio_th) < len(pids):
+                return self.__getitem__(idx-1)
+
+        if self.max_duration:
+            if dur > self.max_duration:
                 return self.__getitem__(idx-1)
 
         sample = {

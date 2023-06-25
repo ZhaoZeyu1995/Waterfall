@@ -41,6 +41,7 @@ def main(cfg):
         load_wav=True,
         transforms=None,
         ratio_th=cfg.model.ratio_th,
+        max_duration=cfg.model.max_duration,
     )
     dev_data = datapipe.Dataset(
         to_absolute_path(cfg.data.dev_set),
@@ -49,6 +50,7 @@ def main(cfg):
         load_wav=True,
         transforms=None,
         ratio_th=cfg.model.ratio_th,
+        max_duration=cfg.model.max_duration,
     )
 
     train_gen = DataLoader(
