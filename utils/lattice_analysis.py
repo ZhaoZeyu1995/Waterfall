@@ -141,9 +141,9 @@ def main():
     with kaldiio.ReadHelper('scp:%s' % (output_scp)) as reader:
         for uttid, log_prob in reader:
             p1, p2, p3 = analyse_one(TLG, log_prob, uttid, args.acoustic_scale, args.search_beam, args.lattice_beam)
-            f1c += '%s %f\n' % (uttid, p1)
-            f2c += '%s %f\n' % (uttid, p2)
-            f3c += '%s %f\n' % (uttid, p3)
+            f1c += '%s %.10f\n' % (uttid, p1)
+            f2c += '%s %.10f\n' % (uttid, p2)
+            f3c += '%s %.10f\n' % (uttid, p3)
 
     f1.write(f1c)
     f2.write(f2c)
