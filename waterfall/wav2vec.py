@@ -309,6 +309,7 @@ class Wav2VecModel(pl.LightningModule):
         # if we don't set model.finetune_layers with a positive integer
         for para in self.wav2vec.feature_extractor.parameters():
             para.requires_grad = False
+        # TODO: add a config to control the finetune_layers so that we can only train the output layer
         if "finetune_layers" in self.cfg.model.keys() and self.cfg.model['finetune_layers'] > 0:
             for para in self.wav2vec.encoder.parameters():
                 para.requires_grad = False
