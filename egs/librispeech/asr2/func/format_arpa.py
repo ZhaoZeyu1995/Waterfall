@@ -5,6 +5,8 @@ import sys
 
 
 '''
+Usage: python3 format_arpa.py lm_unpruned.arpa > lm_unpruned_new.arpa
+
 This programme is basically used to solve the format problem of the n-gram LMs trained by Kaldi.
 
 For example, in WSJ,
