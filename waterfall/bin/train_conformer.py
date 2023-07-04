@@ -116,6 +116,7 @@ def main(cfg):
                                  gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
                                  callbacks=callbacks,
                                  sync_batchnorm=True,
+                                 val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,
                                  )
         else:
             checkpoint = torch.load(
@@ -133,6 +134,7 @@ def main(cfg):
                                  gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
                                  callbacks=callbacks,
                                  sync_batchnorm=True,
+                                 val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,
                                  )
     else:
         trainer = pl.Trainer(gpus=cfg.training.gpus,
@@ -145,6 +147,7 @@ def main(cfg):
                              gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
                              callbacks=callbacks,
                              sync_batchnorm=True,
+                             val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,
                              )
 
     trainer.fit(model, train_gen, dev_gen)
