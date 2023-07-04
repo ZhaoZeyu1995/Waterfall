@@ -114,7 +114,9 @@ def main(cfg):
                                  accumulate_grad_batches=accumulate_grad_batches,
                                  gradient_clip_val=cfg.training.grad_clip,
                                  gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
-                                 callbacks=callbacks)
+                                 callbacks=callbacks,
+                                 sync_batchnorm=True,
+                                 )
         else:
             checkpoint = torch.load(
                 cfg.training.checkpoint, map_location=torch.device('cpu'))
@@ -129,7 +131,9 @@ def main(cfg):
                                  accumulate_grad_batches=accumulate_grad_batches,
                                  gradient_clip_val=cfg.training.grad_clip,
                                  gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
-                                 callbacks=callbacks)
+                                 callbacks=callbacks,
+                                 sync_batchnorm=True,
+                                 )
     else:
         trainer = pl.Trainer(gpus=cfg.training.gpus,
                              strategy=cfg.training.strategy,
@@ -139,7 +143,9 @@ def main(cfg):
                              accumulate_grad_batches=accumulate_grad_batches,
                              gradient_clip_val=cfg.training.grad_clip,
                              gradient_clip_algorithm='norm' if 'grad-clip' in cfg.keys() else None,
-                             callbacks=callbacks)
+                             callbacks=callbacks,
+                             sync_batchnorm=True,
+                             )
 
     trainer.fit(model, train_gen, dev_gen)
 
