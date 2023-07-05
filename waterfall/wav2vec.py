@@ -172,56 +172,6 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         x = F.log_softmax(x, dim=-1)
         return x, xlens
 
-    def debugging(self):
-        norm_sum_4 = 0.0
-        norm_sum_3 = 0.0
-        norm_sum_2 = 0.0
-        norm_sum_1 = 0.0
-        norm_sum_lin = 0.0
-        for para in self.wav2vec.encoder.transformer.layers[-4].parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_4 += torch.norm(para.grad).item()
-        for para in self.wav2vec.encoder.transformer.layers[-3].parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_3 += torch.norm(para.grad).item()
-        for para in self.wav2vec.encoder.transformer.layers[-2].parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_2 += torch.norm(para.grad).item()
-        for para in self.wav2vec.encoder.transformer.layers[-1].parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_1 += torch.norm(para.grad).item()
-        for para in self.output_layer.parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_lin += torch.norm(para.grad).item()
-        print("norm_sum_4", norm_sum_4)
-        print("norm_sum_3", norm_sum_3)
-        print("norm_sum_2", norm_sum_2)
-        print("norm_sum_1", norm_sum_1)
-        print("norm_sum_lin", norm_sum_lin)
-
-        # print('torch.max(para.grad)', torch.max(para.grad))
-        # print('torch.min(para.grad)', torch.min(para.grad))
-
     def training_step(self, batch, batch_idx, optimizer_idx=None):
         loss = self.compute_loss(batch, batch_idx, optimizer_idx)
         self.log("loss", loss, on_epoch=True, sync_dist=True)
@@ -316,6 +266,18 @@ class Wav2VecModel(pl.LightningModule):
             for i in range(1, self.cfg.model['finetune_layers']+1):
                 for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
                     para.requires_grad = True
+
+
+        if 'train_output_layer_first' in self.cfg.training.keys() and self.cfg.training['train_output_layer_first']:
+            assert 'num_training_output_layer_steps' in self.cfg.training.keys(), 'num_training_output_layer_steps must be specified if train_output_layer_first is True'
+            logging.info('Freeze all the layers except the output layer for the first {} steps'.format(self.cfg.training['num_training_output_layer_steps']))
+            self.frozen_flag = False
+            self.finished_flag = False
+            # Take a note of which layers are trainable
+            self.trainable_wav2vec_paras = []
+            for name, para in self.wav2vec.named_parameters():
+                if para.requires_grad:
+                    self.trainable_wav2vec_paras.append(name)
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
         if self.cfg.training.loss in ["k2"]:
@@ -427,56 +389,6 @@ class Wav2VecModel(pl.LightningModule):
         x = F.log_softmax(x, dim=-1)
         return x, xlens
 
-    def debugging(self):
-        norm_sum_4 = 0.0
-        norm_sum_3 = 0.0
-        norm_sum_2 = 0.0
-        norm_sum_1 = 0.0
-        norm_sum_lin = 0.0
-        for para in self.wav2vec.encoder.transformer.layers[-4].parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_4 += torch.norm(para.grad).item()
-        for para in self.wav2vec.encoder.transformer.layers[-3].parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_3 += torch.norm(para.grad).item()
-        for para in self.wav2vec.encoder.transformer.layers[-2].parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_2 += torch.norm(para.grad).item()
-        for para in self.wav2vec.encoder.transformer.layers[-1].parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_1 += torch.norm(para.grad).item()
-        for para in self.output_layer.parameters():
-            # print('para', para)
-            if para.grad is not None:
-                # print('para.grad', para.grad)
-                # print('para.grad.max()', para.grad.max())
-                # print('para.grad.min()', para.grad.min())
-                norm_sum_lin += torch.norm(para.grad).item()
-        print("norm_sum_4", norm_sum_4)
-        print("norm_sum_3", norm_sum_3)
-        print("norm_sum_2", norm_sum_2)
-        print("norm_sum_1", norm_sum_1)
-        print("norm_sum_lin", norm_sum_lin)
-
-        # print('torch.max(para.grad)', torch.max(para.grad))
-        # print('torch.min(para.grad)', torch.min(para.grad))
-
     def training_step(self, batch, batch_idx, optimizer_idx=None):
         loss = self.compute_loss(batch, batch_idx, optimizer_idx)
         self.log("loss", loss, on_epoch=True, sync_dist=True)
@@ -520,6 +432,21 @@ class Wav2VecModel(pl.LightningModule):
         using_native_amp=False,
         using_lbfgs=False,
     ):
+
+        if 'train_output_layer_first' in self.cfg.training.keys() and self.cfg.training['train_output_layer_first'] and self.finished_flag is False:
+            assert 'num_training_output_layer_steps' in self.cfg.training.keys(), 'num_training_output_layer_steps must be specified if train_output_layer_first is True'
+            if self.trainer.global_step < self.cfg.training['num_training_output_layer_steps'] and self.frozen_flag is False:
+                logging.info('Freezing wav2vec parameters')
+                for para in self.wav2vec.parameters():
+                    para.requires_grad = False
+                self.frozen_flag = True
+            elif self.trainer.global_step == self.cfg.training['num_training_output_layer_steps'] and self.frozen_flag is True:
+                logging.info('Unfreezing wav2vec parameters')
+                for name, para in self.wav2vec.named_parameters():
+                    if name in self.trainable_wav2vec_paras:
+                        para.requires_grad = True
+                self.finished_flag = True
+
         optimizer.step(closure=optimizer_closure)
         lr = self.cfg.training["final_lr"] * min(
             (self.trainer.global_step + 1) ** (-0.5)

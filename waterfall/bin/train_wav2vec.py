@@ -191,4 +191,8 @@ def main(cfg):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s",
+        level=logging.INFO,
+    )
     main()

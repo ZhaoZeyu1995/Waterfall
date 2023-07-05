@@ -154,7 +154,7 @@ class Lang(object):
         At the same time, we need to project the input labels to output labels,
         as the input labels represent tokens in tokens.txt and output labels represent phones in phones.txt.
         '''
-        print(f'Loading topo from {self._lang_dir}/T.fst')
+        logging.info(f'Loading topo from {self._lang_dir}/T.fst')
         cmd = (
             f"""fstprint {self._lang_dir}/T.fst | """
             f"""awk -F '\t' '{{if (NF==4) {{print $0 FS "0.0"; }} else {{print $0;}}}}'"""
@@ -163,7 +163,7 @@ class Lang(object):
         self.topo = k2.Fsa.from_openfst(openfst_txt, acceptor=False)
         self.topo_den = k2.remove_epsilon(
             k2.Fsa.from_openfst(openfst_txt, acceptor=False))
-        print('Done!')
+        logging.info(f'Finished loading topo from {self._lang_dir}/T.fst')
 
     def load_topo(self):
         '''
@@ -171,14 +171,14 @@ class Lang(object):
         At the same time, we need to project the input labels to output labels,
         as the input labels represent tokens in tokens.txt and output labels represent phones in phones.txt.
         '''
-        print(f'Loading and processing topo from {self._lang_dir}/k2/T.fst')
+        logging.info(f'Loading and processing topo from {self._lang_dir}/k2/T.fst')
         cmd = (
             f"""fstprint {self._lang_dir}/k2/T.fst | """
             f"""awk -F '\t' '{{if (NF==4) {{print $0 FS "0.0"; }} else {{print $0;}}}}'"""
         )
         openfst_txt = os.popen(cmd).read()
         self.topo = k2.Fsa.from_openfst(openfst_txt, acceptor=False)
-        print('Done!')
+        logging.info(f'Finished loading topo from {self._lang_dir}/k2/T.fst')
 
     def load_lexicon(self):
         '''
@@ -186,11 +186,11 @@ class Lang(object):
         '''
         L_inv_fst = os.path.join(self._lang_dir, 'k2', 'L_inv.pt')
         if os.path.exists(L_inv_fst):
-            print(f'Loading L_inv from {self._lang_dir}/k2/L_inv.pt')
+            logging.info(f'Loading L_inv from {self._lang_dir}/k2/L_inv.pt')
             self.L_inv = k2.arc_sort(k2.Fsa.from_dict(torch.load(L_inv_fst)))
             self.L = k2.arc_sort(self.L_inv.invert())
         else:
-            print(
+            logging.info(
                 f'Loading {self._lang_dir}/L.fst and transforming it into {self._lang_dir}/k2/L_inv.pt ')
 
             cmd = (
@@ -210,7 +210,7 @@ class Lang(object):
         '''
 
         if not os.path.exists(f"{self._lang_dir}/k2/TL.fst"):
-            print(
+            logging.info(
                 f'Composing {self._lang_dir}/k2/T.fst and {self._lang_dir}/L.fst for the denominator')
             cmd = (
                 f"""fstarcsort --sort_type=ilabel {self._lang_dir}/L.fst |"""
