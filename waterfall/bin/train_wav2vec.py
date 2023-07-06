@@ -16,7 +16,6 @@ from waterfall.utils import datapipe
 from waterfall.utils.specaug import SpecAugment
 import wandb
 import hydra
-from omegaconf import DictConfig, OmegaConf
 from hydra.utils import get_original_cwd, to_absolute_path
 
 
