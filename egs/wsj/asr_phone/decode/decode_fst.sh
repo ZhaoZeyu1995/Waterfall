@@ -14,7 +14,8 @@ acoustic_scale="1.0"
 beams='16'
 decode_sets="test_dev93 test_eval92"
 lang_dir=data/lang_tg
-suffix= # can be "" "_soft" or "_hard"
+suffix= 
+predict_suffix= 
 
 
 . ./utils/parse_options.sh
@@ -28,7 +29,7 @@ for decode_set in $decode_sets; do
     predict_dir=$exp_dir/decode_${decode_set}_${suffix}
     if [ ! -d $predict_dir ]; then
         mkdir -p $predict_dir
-        for x in $exp_dir/predict_${decode_set}/*; do
+        for x in $exp_dir/predict_${decode_set}${predict_suffix}/*; do
             if [[ $x == *.ark ]]; then
                 continue
             fi 
