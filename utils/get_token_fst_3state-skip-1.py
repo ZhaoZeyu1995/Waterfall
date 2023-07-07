@@ -34,6 +34,7 @@ for entry in fread.readlines():
         print(str(nodeX+1) + ' ' + str(nodeX+2) + ' ' + phone+'_2' + ' <eps>') #  transition back to the initial state
         print(str(nodeX+2) + ' ' + str(nodeX+2) + ' ' + phone+'_2' + ' <eps>') #  self-loop for the second state
         print(str(nodeX+2) + ' ' + str(0) + ' ' + '<eps>' + ' ' + '<eps>') #  transition back to the initial state
+        print(str(nodeX) + ' ' + str(nodeX+2) + ' ' + phone+'_2' + ' <eps>') #  transition from the first state to the third state
     nodeX += 3
 
 print('0')
