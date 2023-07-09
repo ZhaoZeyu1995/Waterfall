@@ -15,6 +15,7 @@ beams='16'
 decode_sets="dev_clean dev_other test_clean test_other"
 lang_dir=data/lang_tg
 suffix= 
+predict_suffix= 
 
 
 . ./utils/parse_options.sh
@@ -28,7 +29,7 @@ for decode_set in $decode_sets; do
     predict_dir=$exp_dir/decode_${decode_set}_${suffix}
     if [ ! -d $predict_dir ]; then
         mkdir -p $predict_dir
-        for f in $exp_dir/predict_${decode_set}/*; do
+        for f in $exp_dir/predict_${decode_set}${predict_suffix}/*; do
             if [[ $f == *.ark ]]; then
                 continue
             fi
