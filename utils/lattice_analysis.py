@@ -9,6 +9,7 @@ import torch
 import openfst_python as fst
 import numpy as np
 import argparse
+from waterfall.utils.datapipe import read_dict
 
 """
 This script is used to analyze the lattice.
@@ -52,15 +53,21 @@ def virtual_lattice_decoder(lattice, one_best_aux_label):
     compiler.write(k2.to_str_simple(lattice, openfst=True))
     lattice_fst = compiler.compile()
 
+    logging.info('Projecting the lattice.')
     lattice_fst.project(project_output=True)
+    logging.info('Determinising the lattice.')
     lattice_fst = fst.determinize(lattice_fst)
+    logging.info('Removing epsilons in the lattice.')
     lattice_fst.rmepsilon()
+    logging.info('Determinising the lattice.')
     lattice_fst = fst.determinize(lattice_fst)
+    logging.info('Minimising the lattice.')
     lattice_fst.minimize()
 
     lattice_fst_str = lattice_fst.__str__()
 
     assert lattice_fst.verify(), 'The lattice is not valid.'
+    logging.info('The lattice is valid.')
 
     det_lattice_fst = k2.Fsa.from_openfst(lattice_fst_str, acceptor=False)
     det_lattice_fst = k2.create_fsa_vec([det_lattice_fst])
@@ -81,6 +88,7 @@ def virtual_lattice_decoder(lattice, one_best_aux_label):
         logging.info('det_one_best_aux_label == one_best_aux_label')
     logging.info(f'det_one_best.get_tot_scores(True, True) {det_one_best.get_tot_scores(True, True)}')
     logging.info(f'det_one_best.get_tot_scores(True, False) {det_one_best.get_tot_scores(True, False)}')
+    return det_one_best_aux_label
 
 
 
@@ -90,7 +98,9 @@ def analyse_one(TLG,
                 uttid, 
                 acoustic_scale, 
                 search_beam, 
-                lattice_beam):
+                lattice_beam,
+                virtual_lat_dec,
+                trn_ids):
     """
     Args:
     TLG: The decoding graph, which is an FsaVec in k2.
@@ -99,6 +109,8 @@ def analyse_one(TLG,
     acoustic_scale: The acoustic scale used in decoding.
     search_beam: The search beam used in decoding.
     lattice_beam: The lattice beam used in decoding.
+    virtual_lat_dec: Whether to use the virtual lattice decoder.
+    trn_ids: The word id sequence of the utterance (ground truth).
 
     Returns:
     Three float numbers, which are the P^S_L(W) / P^S_L, P^S_L(W) / P^S_D(W), P^B_L(W) / P^S_L(W).
@@ -116,7 +128,7 @@ def analyse_one(TLG,
     lattice_total_score = lattice.get_tot_scores(True, True)
     lattice_best_score = lattice.get_tot_scores(True, False)
     logging.info(f'lattice.get_tot_scores(True, True), log semiring {lattice_total_score}')
-    logging.info('lattice.get_tot_scores(True, False), tropical semiring {lattice_best_score}')
+    logging.info(f'lattice.get_tot_scores(True, False), tropical semiring {lattice_best_score}')
 
     one_best = k2.one_best_decoding(lattice)
     one_best_aux_label = k2.get_aux_labels(one_best)
@@ -127,11 +139,24 @@ def analyse_one(TLG,
     latticeW = k2.connect(k2.compose(lattice, W))
     TLGW = k2.connect(k2.compose(TLG, W))
 
+    logging.info(f'trn_ids {trn_ids}')
+    W_trn = k2.linear_fst([trn_ids], [trn_ids])
+    W_trn = k2.arc_sort(W_trn)
+    TLGW_trn = k2.connect(k2.compose(TLG, W_trn))
+
     ETLGW = k2.intersect_dense(TLGW, dense_fsa_vec, 10)
     TLG_W_total_score = ETLGW.get_tot_scores(True, True)
     TLG_W_best_score = ETLGW.get_tot_scores(True, False)
     logging.info(f'ETLGW.get_total_scores(True, True), log semiring, {TLG_W_total_score}')
     logging.info(f'ETLGW.get_total_scores(True, False), tropical semiring, {TLG_W_best_score}')
+
+    ETLGW_trn = k2.intersect_dense(TLGW_trn, dense_fsa_vec, 10)
+    TLG_W_trn_total_score = ETLGW_trn.get_tot_scores(True, True)
+    TLG_W_trn_best_score = ETLGW_trn.get_tot_scores(True, False)
+    logging.info(f'ETLGW_trn.get_total_scores(True, True), log semiring, {TLG_W_trn_total_score}')
+    logging.info(f'ETLGW_trn.get_total_scores(True, False), tropical semiring, {TLG_W_trn_best_score}')
+    one_best_ETLGW_trn = k2.one_best_decoding(ETLGW_trn)
+    logging.info(f'one_best_ETLGW_trn.labels {one_best_ETLGW_trn.labels}')
 
     lattice_W_total_score = latticeW.get_tot_scores(True, True)
     lattice_W_best_score = latticeW.get_tot_scores(True, False)
@@ -149,50 +174,64 @@ def analyse_one(TLG,
     logging.info(f"W in Lattice / W in TLG, {WSumInLVsWSumInTLG}")
     logging.info(f"W best in Lattice / W sum in Lattice, {WBestInLVsWSumInLV}")
 
-    if WSumInLVsSumL < 0.5:
+    if WSumInLVsSumL < 0.5 and virtual_lat_dec:
         logging.info(f'WSumInLVsSumL < 0.5, {uttid}')
-        virtual_lattice_decoder(lattice[0], one_best_aux_label)
+        one_best_aux_label = virtual_lattice_decoder(lattice[0], one_best_aux_label)
 
-    return WSumInLVsSumL, WSumInLVsWSumInTLG, WBestInLVsWSumInLV
+    return WSumInLVsSumL, WSumInLVsWSumInTLG, WBestInLVsWSumInLV, one_best_aux_label[0]
 
 
 def main():
     parser = argparse.ArgumentParser(description='Analyse the decoding results')
     parser.add_argument('--TLG', type=str, help='The decoding graph, e.g, data/lang/TLG.pt')
-    parser.add_argument('--scp-split-dir', type=str, help='The log probabilities of the decoding results, e.g., outputs/*/*/decode_test/split*')
+    parser.add_argument('--text', type=str, help='The text file, e.g., data/test/text')
+    parser.add_argument('--words', type=str, help='The words file, e.g., data/lang/words.txt')
+    parser.add_argument('--scp-split-dir', type=str, help='The log probabilities of the decoding results, e.g., outputs/*/*/decode_test_lattice/split*')
+    parser.add_argument('--output-dir', type=str, help='The output directory of the analysis results, e.g., outputs/*/*/decode_test_lattice/acwt_1.0-beam_20.0-latbeam_6.0/split*')
     parser.add_argument('--acoustic-scale', type=float, help='The acoustic scale used to get the lattice')
-    parser.add_argument('--search-beam', type=int, help='The search beam used in decoding')
-    parser.add_argument('--lattice-beam', type=int, help='The lattice beam used in decoding')
+    parser.add_argument('--max-active', type=int, help='The max active used in decoding')
+    parser.add_argument('--search-beam', type=float, help='The search beam used in decoding')
+    parser.add_argument('--lattice-beam', type=float, help='The lattice beam used in decoding')
     parser.add_argument('--nj', type=int, help='The job number')
+    parser.add_argument('--virtual-lat-dec', type=bool, help='Whether to use virtual lattice decoder', default=False)
     args = parser.parse_args()
 
     TLG= k2.Fsa.from_dict(torch.load(args.TLG))
     TLG= k2.invert(k2.invert(TLG)) # invent the TLG twice to make its aux_labels back to torch.Tensor
 
+    utt2text = read_dict(args.text)
+    word2idx = read_dict(args.words, mapping=int)
+    utt2wids = {utt: [word2idx[w] if w in word2idx else word2idx['<UNK>'] for w in text.split()] for utt, text in utt2text.items()}
 
-    output_scp = os.path.join(args.scp_split_dir, 'output.%d.scp' % (args.nj))
 
-    f1 = open(os.path.join(args.scp_split_dir, 'WSumInL.SumL.SearchBeam%d.LatticeBeam%d.%d.txt' % (args.search_beam, args.lattice_beam, args.nj)), 'w')
+    scp = os.path.join(args.scp_split_dir, 'output.%d.scp' % (args.nj))
+
+    f1 = open(os.path.join(args.output_dir, 'WSumInL.SumL.SearchBeam%.1f.LatticeBeam%.1f.%d.txt' % (args.search_beam, args.lattice_beam, args.nj)), 'w')
     f1c = ''
-    f2 = open(os.path.join(args.scp_split_dir, 'WSumInL.WSumInTLG.SearchBeam%d.LatticeBeam%d.%d.txt' % (args.search_beam, args.lattice_beam, args.nj)), 'w')
+    f2 = open(os.path.join(args.output_dir, 'WSumInL.WSumInTLG.SearchBeam%.1f.LatticeBeam%.1f.%d.txt' % (args.search_beam, args.lattice_beam, args.nj)), 'w')
     f2c = ''
-    f3 = open(os.path.join(args.scp_split_dir, 'WBestInL.WSumInL.SearchBeam%d.LatticeBeam%d.%d.txt' % (args.search_beam, args.lattice_beam, args.nj)), 'w')
+    f3 = open(os.path.join(args.output_dir, 'WBestInL.WSumInL.SearchBeam%.1f.LatticeBeam%.1f.%d.txt' % (args.search_beam, args.lattice_beam, args.nj)), 'w')
     f3c = ''
+    f4 = open(os.path.join(args.output_dir, 'hyp.%d.wrd' % (args.nj)), 'w')
+    f4c = ''
 
 
-    with kaldiio.ReadHelper('scp:%s' % (output_scp)) as reader:
+    with kaldiio.ReadHelper('scp:%s' % (scp)) as reader:
         for uttid, log_prob in reader:
-            p1, p2, p3 = analyse_one(TLG, log_prob, uttid, args.acoustic_scale, args.search_beam, args.lattice_beam)
+            p1, p2, p3, hyp = analyse_one(TLG, log_prob, uttid, args.acoustic_scale, args.search_beam, args.lattice_beam, args.virtual_lat_dec, utt2wids[uttid])
             f1c += '%s %.10f\n' % (uttid, p1)
             f2c += '%s %.10f\n' % (uttid, p2)
             f3c += '%s %.10f\n' % (uttid, p3)
+            f4c += '%s %s\n' % (uttid, ' '.join(list(map(str, hyp))))
 
     f1.write(f1c)
     f2.write(f2c)
     f3.write(f3c)
+    f4.write(f4c)
     f1.close()
     f2.close()
     f3.close()
+    f4.close()
 
 if __name__ == "__main__":
     logging.basicConfig(
