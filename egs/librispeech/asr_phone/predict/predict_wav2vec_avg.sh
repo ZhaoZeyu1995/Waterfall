@@ -16,7 +16,9 @@ lang_dir=data/lang_tg
 . utils/parse_options.sh
 
 model_dir=$1
-exp_dir=$(dirname $(dirname $model_dir)) # this is specific for our exp dir structure
+first_model=$(echo "$model_dir" | cut -d ',' -f1)
+
+exp_dir=$(dirname $(dirname $first_model)) # this is specific for our exp dir structure
 
 for decode_set in $decode_sets; do
     data_dir=data/$decode_set
