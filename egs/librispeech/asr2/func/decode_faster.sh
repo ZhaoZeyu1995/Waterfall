@@ -6,6 +6,7 @@
 # Decoding with FST-based decoder
 # e.g. decode_fst.sh data/test_dev93 data/lang exp/ctc_LV60K_2l/version_3/decode_test_dev93
 
+echo "$0 $@"  # Print the command line for logging
 
 nj=10
 max_active="6000"
