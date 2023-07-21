@@ -237,8 +237,15 @@ class Wav2VecModel(pl.LightningModule):
         self.freese_and_init()
         self.encoder_output_size = self.cfg.model["encoder_output_size"]
         self.batch_norm = nn.BatchNorm1d(self.encoder_output_size)
-        self.output_layer = nn.Linear(
-            self.encoder_output_size, self.output_dim)
+        if 'two_layer_output' in self.cfg.model.keys() and self.cfg.model['two_layer_output']:
+            self.output_layer = nn.Sequential(
+                nn.Linear(self.encoder_output_size, self.encoder_output_size),
+                nn.ReLU(),
+                nn.Linear(self.encoder_output_size, self.output_dim)
+            )
+        else:
+            self.output_layer = nn.Linear(
+                self.encoder_output_size, self.output_dim)
 
         if self.cfg.training.loss == "builtin_ctc":
             self.lang = Lang(lang_dir)
