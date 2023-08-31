@@ -1,0 +1,3 @@
+train_set: data/train_yesno
+dev_set: data/test_yesno
+lang_dir: ???

@@ -1,7 +1,7 @@
-# loss_func
 loss: k2
-no_den: false
-no_den_grad: true
+gpus: ???
+name: ???
+output_dir: ${hydra:run.dir}
 # batch
 batch_size: 8
 # data pipeline
@@ -9,7 +9,6 @@ num_workers: 2
 # multi-gpu training
 strategy: ddp
 # optimiser
-#optimiser: adam
 lr: 1e-4
 lr_patience: 2
 min_lr: 1e-8
@@ -21,13 +20,5 @@ early_stopping: true
 patience: 8
 # for debugging
 max_steps: -1
-max_epochs: 1000
-
-#model related
-etype: blstmp
-idim: 83
-elayers: 3
-eunits: 128
-eprojs: 128
-subsample: [1,2,2,1,1]
-dropout: 0.1
+max_epochs: 100
+spec_aug: false

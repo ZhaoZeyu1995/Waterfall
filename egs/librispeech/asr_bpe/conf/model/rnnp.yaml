@@ -1,0 +1,7 @@
+idim: 83
+etype: blstmp
+elayers: 3
+eunits: 256
+eprojs: 256
+subsample: [1,2,1,1,1,1]
+dropout: 0.1

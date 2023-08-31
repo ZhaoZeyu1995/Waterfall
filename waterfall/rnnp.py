@@ -25,27 +25,27 @@ class RNNPModel(pl.LightningModule):
         self.save_hyperparameters()
 
         self.encoder = Encoder(
-            etype=cfg['etype'],
+            etype=cfg.model["etype"],
             idim=input_dim,
-            elayers=cfg['elayers'],
-            eunits=cfg['eunits'],
-            eprojs=cfg['eprojs'],
-            subsample=cfg['subsample'],
-            dropout=cfg['dropout']
+            elayers=cfg.model['elayers'],
+            eunits=cfg.model['eunits'],
+            eprojs=cfg.model['eprojs'],
+            subsample=cfg.model['subsample'],
+            dropout=cfg.model['dropout']
         )
 
-        self.batch_norm = nn.BatchNorm1d(cfg['eprojs'])
+        self.batch_norm = nn.BatchNorm1d(cfg.model['eprojs'])
 
-        self.output_layer = nn.Linear(cfg['eprojs'], self.output_dim)
+        self.output_layer = nn.Linear(cfg.model['eprojs'], self.output_dim)
 
-        if self.cfg['loss'] == 'builtin_ctc':
+        if self.cfg.training['loss'] == 'builtin_ctc':
             self.lang = Lang(lang_dir)
-        elif self.cfg['loss'] == 'k2':
+        elif self.cfg.training['loss'] == 'k2':
             self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
 
-        if self.cfg['loss'] in ['k2']:
+        if self.cfg.training['loss'] in ['k2']:
             wavs = batch['feats']
             lengths = batch['feats_lens']
             word_ids = batch['word_ids']
@@ -71,9 +71,11 @@ class RNNPModel(pl.LightningModule):
                                         target_lengths=target_lengths,
                                         reduction='mean')
 
-            if 'no_den' in self.cfg.keys() and self.cfg['no_den']:
+            if 'no_den' in self.cfg.training.keys() and self.cfg.traning['no_den']:
+                logging.info('No denominator!!!')
                 loss = numerator
-            elif 'no_den_grad' in self.cfg.keys() and self.cfg['no_den_grad']:
+            elif 'no_den_grad' in self.cfg.training.keys() and self.cfg.training['no_den_grad']:
+                logging.info('No denominator gradient!!!')
                 with torch.no_grad():
                     den_decoding_graph = k2.create_fsa_vec(
                         [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
@@ -86,7 +88,6 @@ class RNNPModel(pl.LightningModule):
                                                   reduction='mean')
                 loss = numerator - denominator
             else:
-
                 den_decoding_graph = k2.create_fsa_vec(
                     [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
 
@@ -97,7 +98,7 @@ class RNNPModel(pl.LightningModule):
                                               target_lengths=target_lengths,
                                               reduction='mean')
                 loss = numerator - denominator
-        elif self.cfg['loss'] == 'builtin_ctc':
+        elif self.cfg.training['loss'] == 'builtin_ctc':
             wavs = batch['feats']
             lengths = batch['feats_lens']
             target_lengths = batch['target_lengths']
@@ -108,7 +109,7 @@ class RNNPModel(pl.LightningModule):
 
         else:
             raise Exception('Unrecognised Loss Function %s' %
-                            (self.cfg['loss']))
+                            (self.cfg.training['loss']))
 
         return loss
 
@@ -147,11 +148,11 @@ class RNNPModel(pl.LightningModule):
         return log_probs, xlens, names, spks, texts
 
     def configure_optimizers(self):
-        optimiser = torch.optim.Adam(self.parameters(), lr=float(self.cfg['lr']))
+        optimiser = torch.optim.Adam(self.parameters(), lr=float(self.cfg.training['lr']))
         return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser,
                                                                                       'min',
-                                                                                      patience=self.cfg['lr_patience'],
+                                                                                      patience=self.cfg.training['lr_patience'],
                                                                                       verbose=True,
-                                                                                      min_lr=float(self.cfg['min_lr']),
-                                                                                      factor=self.cfg['factor']),
+                                                                                      min_lr=float(self.cfg.training['min_lr']),
+                                                                                      factor=self.cfg.training['factor']),
                               'monitor': 'valid_loss'}]
