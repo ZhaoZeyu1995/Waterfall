@@ -1,0 +1,5 @@
+defaults:
+  - data: train960
+  - model: conformer.sub4
+  - training: convention
+  - specaug: convention

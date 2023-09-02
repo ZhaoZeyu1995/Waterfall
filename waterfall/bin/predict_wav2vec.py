@@ -11,6 +11,7 @@ import logging
 from waterfall import wav2vec
 from kaldiio import WriteHelper
 import time
+from tqdm import tqdm
 
 
 def predict(data_dir,
@@ -30,9 +31,7 @@ def predict(data_dir,
     batch_size, int, by default 1
     '''
 
-    model = wav2vec.Wav2VecModel.load_from_checkpoint(model_dir)
-
-    trainer = pl.Trainer(gpus=gpus, logger=None)
+    model = wav2vec.Wav2VecModel.load_from_checkpoint(model_dir).cuda()
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -48,32 +47,43 @@ def predict(data_dir,
                           batch_size=batch_size,
                           collate_fn=collate_fn_sorted,
                           num_workers=4)
-    print('Predicting...')
-    results = trainer.predict(model, data_gen)
-    print('Finished!')
+    logging.info('Predicting...')
 
     with open(os.path.join(output_dir, 'ref.wrd.trn.%d' % (jid)), 'w') as y:
         yc = ''
         with WriteHelper('ark,scp:%s,%s' % (os.path.join(os.getcwd(), output_dir, 'output.%d.ark' % (jid)), os.path.join(os.getcwd(), output_dir, 'output.%d.scp' % (jid)))) as writer:
-            for item in results:
-                log_probs = item[0]
-                probs = log_probs.cpu().detach().numpy()
-                xlens = item[1]
-                names = item[2]
-                spks = item[3]
-                texts = item[4]
-                for i in range(probs.shape[0]):
-                    single_probs = probs[i, :xlens[i], :]
+            # Conduct prediction
+            model.eval()
+            for batch_idx, batch in tqdm(enumerate(data_gen)):
+                # batch is a dict and contains the following keys: "wavs", "wav_lens", "targests", "names", "spks", "texts"
+                # We need to put wavs and wav_lens on the gpu
+                batch['wavs'] = batch['wavs'].cuda()
+                batch['wav_lens'] = batch['wav_lens'].cuda()
+                results = model.predict_step(batch, batch_idx)
+                log_probs = results[0]
+                log_probs = log_probs.cpu().detach().numpy()
+                xlens = results[1]
+                names = results[2]
+                spks = results[3]
+                texts = results[4]
+                for i in range(log_probs.shape[0]):
+                    single_probs = log_probs[i, :xlens[i], :]
                     writer(names[i], single_probs)
 
                     yc += '%s (%s-%s)\n' % (texts[i],
                                             spks[i], names[i])
+
         y.write(yc)
     toc = time.time()
-    print('Running time for job %d : %f' % (jid, toc-tic))
+    logging.info('Finished!')
+    logging.info('Running time for job %d : %f' % (jid, toc-tic))
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s",
+        level=logging.INFO,
+    )
     parser = argparse.ArgumentParser(
         description='Get the outputs (posterior probabilities) from a conformer model.')
     parser.add_argument('--data_dir', type=str)

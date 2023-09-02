@@ -6,6 +6,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
+from pytorch_lightning.strategies import DDPStrategy
 import argparse
 import yaml
 import random
@@ -13,7 +14,6 @@ import numpy as np
 import logging
 from waterfall import wav2vec
 from waterfall.utils import datapipe
-from waterfall.utils.specaug import SpecAugment
 import wandb
 import hydra
 from hydra.utils import get_original_cwd, to_absolute_path
@@ -33,18 +33,29 @@ def main(cfg):
     if cfg.training.loss == "builtin_ctc":
         ctc_target = True
 
+    if "sort" in cfg.training.keys():
+        if cfg.training.sort == "ascending":
+            logging.info("Sorting data by ascending order of duration")
+        elif cfg.training.sort == "descending":
+            logging.info("Sorting data by descending order of duration")
+    else:
+        logging.info("Not sorting data")
+
+    lang = datapipe.Lang(to_absolute_path(cfg.data.lang_dir))
+
     train_data = datapipe.Dataset(
         to_absolute_path(cfg.data.train_set),
-        to_absolute_path(cfg.data.lang_dir),
+        lang,
         ctc_target=ctc_target,
         load_wav=True,
         transforms=None,
         ratio_th=cfg.model.ratio_th,
         max_duration=cfg.model.max_duration,
+        sort=cfg.training.sort,
     )
     dev_data = datapipe.Dataset(
         to_absolute_path(cfg.data.dev_set),
-        to_absolute_path(cfg.data.lang_dir),
+        lang,
         ctc_target=ctc_target,
         load_wav=True,
         transforms=None,
@@ -55,10 +66,11 @@ def main(cfg):
     train_gen = DataLoader(
         train_data,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=True if cfg.training.sort is None else False,
         num_workers=cfg.training.num_workers,
         persistent_workers=True,
         collate_fn=datapipe.collate_fn_sorted,
+        pin_memory=True,
     )
     dev_gen = DataLoader(
         dev_data,
@@ -70,7 +82,8 @@ def main(cfg):
     )
 
     if cfg.training.nowarmup:
-        model = wav2vec.Wav2VecNoWarmup(
+        logging.info("Training without warmup")
+        model = wav2vec.Wav2VecModelNoWarmup(
             train_data.lang.num_nn_output,
             cfg=cfg,
             lang_dir=cfg.data.lang_dir,
@@ -119,7 +132,7 @@ def main(cfg):
         name=cfg.training.name,
         save_dir=os.path.join(cfg.training.output_dir),
     )
-    logger.watch(model, log="all", log_graph=False)
+    logger.watch(model, log_freq=500, log_graph=False)
 
     if "checkpoint" in cfg.training.keys() and cfg.training.checkpoint is not None:
         if (
@@ -127,7 +140,7 @@ def main(cfg):
             and not cfg.training.load_weights_only
         ):
             trainer = pl.Trainer(
-                gpus=cfg.training.gpus,
+                devices=cfg.training.gpus,
                 strategy=cfg.training.strategy,
                 deterministic=False,
                 resume_from_checkpoint=cfg.training.checkpoint,
@@ -148,7 +161,7 @@ def main(cfg):
             del checkpoint
             torch.cuda.empty_cache()
             trainer = pl.Trainer(
-                gpus=cfg.training.gpus,
+                devices=cfg.training.gpus,
                 strategy=cfg.training.strategy,
                 deterministic=False,
                 max_epochs=cfg.training.max_epochs,
@@ -162,8 +175,8 @@ def main(cfg):
             )
     else:
         trainer = pl.Trainer(
-            gpus=cfg.training.gpus,
-            strategy=cfg.training.strategy,
+            devices=cfg.training.gpus,
+            strategy=DDPStrategy(static_graph=True),
             deterministic=False,
             max_epochs=cfg.training.max_epochs,
             logger=logger,

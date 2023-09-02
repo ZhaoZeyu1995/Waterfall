@@ -302,9 +302,10 @@ class Dataset(torch.utils.data.Dataset):
 
     def __init__(self,
                  data_dir,
-                 lang_dir,
+                 lang: Lang,
                  ratio_th=None,
                  max_duration=None,
+                 sort=None,
                  ctc_target=False,
                  load_wav=False,
                  load_feats=False,
@@ -322,7 +323,7 @@ class Dataset(torch.utils.data.Dataset):
 
         args:
         data_dir: str, the data directory
-        lang_dir: str, the language directory
+        lang: Lang or str, the language directory
         ctc_target: bool, whether or not prepare ctc targets which is stored with the key 'target_ctc', by default False
         load_wav: bool, whether or not load wav from wav.scp, by default False
         load_feats: bool, whether or not load feats from $data_dir/dump/delta{true/flase}/feats.scp, by default False
@@ -330,10 +331,10 @@ class Dataset(torch.utils.data.Dataset):
         transforms: func, a function that transforms samples, e.g, SpecAugment
         '''
         self.data_dir = data_dir
-        self.lang_dir = lang_dir
         self.ratio_th = ratio_th
         self.max_duration = max_duration
-        self.lang = Lang(self.lang_dir)
+        self.sort = sort
+        self.lang = lang if isinstance(lang, Lang) else Lang(lang)
 
         self.wav_scp = os.path.join(self.data_dir, 'wav.scp')
         if load_wav:
@@ -363,6 +364,16 @@ class Dataset(torch.utils.data.Dataset):
             self.utt2feats = kaldiio.load_scp(self.dump_feats)
 
         self.transforms = transforms
+
+        if self.max_duration is not None:
+            self.uttids = [uttid for uttid in self.uttids if self.utt2dur[uttid] <= self.max_duration]
+
+        if self.sort is not None:
+            assert self.sort in ["ascending", "descending"], "sort must be ascending or descending"
+            if self.sort == "ascending":
+                self.uttids = sorted(self.uttids, key=lambda x: self.utt2dur[x])
+            else:
+                self.uttids = sorted(self.uttids, key=lambda x: self.utt2dur[x], reverse=True)
 
     def __len__(self):
         return len(self.uttids)
@@ -400,10 +411,8 @@ class Dataset(torch.utils.data.Dataset):
         # However, we should definitely keep ratio_th as None during evaluation.
         if self.ratio_th:
             if int(num_frame / self.ratio_th) < len(pids):
-                return self.__getitem__(idx-1)
-
-        if self.max_duration:
-            if dur > self.max_duration:
+                logging.warn('The num_frame %d is not enough for the utterance %s, we will take the last utterance in the dataset' % (
+                    num_frame, uttid))
                 return self.__getitem__(idx-1)
 
         sample = {

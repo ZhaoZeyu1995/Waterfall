@@ -6,7 +6,6 @@ import numpy as np
 import logging
 import torchaudio
 from waterfall import graph
-from waterfall.manual_ctc import ctc, prior, softmax_ctc, eta_scheduler
 import k2
 from waterfall.utils.datapipe import Lang
 import time
@@ -29,12 +28,22 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         self.save_hyperparameters()
 
         bundle = getattr(torchaudio.pipelines, cfg.model["model"])
-        self.wav2vec = bundle.get_model()
-        self.freese_and_init()
+        wav2vec = bundle.get_model()
+        if hasattr(wav2vec, "model"): # Deal with different torchaudio versions
+            self.wav2vec = wav2vec.model
+        else:
+            self.wav2vec = wav2vec
+
+        self.freeze_and_init()
         self.encoder_output_size = self.cfg.model["encoder_output_size"]
         self.batch_norm = nn.BatchNorm1d(self.encoder_output_size)
-        self.output_layer = nn.Linear(
-            self.encoder_output_size, self.output_dim)
+        self.output_layer = nn.Sequential(
+                nn.Linear(self.encoder_output_size, self.encoder_output_size),
+                nn.LeakyReLU(),
+                nn.Linear(self.encoder_output_size, self.encoder_output_size),
+                nn.LeakyReLU(),
+                nn.Linear(self.encoder_output_size, self.output_dim)
+            )
 
         if self.cfg.training.loss == "builtin_ctc":
             self.lang = Lang(lang_dir)
@@ -49,18 +58,20 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
             self.freq_masking = torchaudio.transforms.FrequencyMasking(
                 freq_mask_param=cfg.model["freq_mask_param"])
 
-    def freese_and_init(self):
+    def freeze_and_init(self):
         self.wav2vec.aux = None  # get rid of the output linear layer in wav2vec model
         # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part
         # if we don't set model.finetune_layers with a positive integer
         for para in self.wav2vec.feature_extractor.parameters():
             para.requires_grad = False
-        if "finetune_layers" in self.cfg.model.keys() and self.cfg.model['finetune_layers'] > 0:
+        if "finetune_layers" in self.cfg.model.keys():
+            logging.info("Finetune the last {} layers of the wav2vec model".format(self.cfg.model['finetune_layers']))
             for para in self.wav2vec.encoder.parameters():
                 para.requires_grad = False
-            for i in range(1, self.cfg.model['finetune_layers']+1):
-                for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
-                    para.requires_grad = True
+            if self.cfg.model['finetune_layers'] > 0:
+                for i in range(1, self.cfg.model['finetune_layers']+1):
+                    for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
+                        para.requires_grad = True
 
     def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
         if self.cfg.training.loss in ["k2"]:
@@ -174,13 +185,16 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
 
     def training_step(self, batch, batch_idx, optimizer_idx=None):
         loss = self.compute_loss(batch, batch_idx, optimizer_idx)
-        self.log("loss", loss, on_epoch=True, sync_dist=True)
+        batch_size = int(batch["wavs"].shape[0])
+        self.log("loss", loss, on_epoch=True, sync_dist=True, 
+                 batch_size=batch_size, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss = self.compute_loss(batch, batch_idx)
-        self.log("valid_loss", loss, prog_bar=True,
-                 on_epoch=True, sync_dist=True)
+        batch_size = int(batch["wavs"].shape[0])
+        self.log("valid_loss", loss, on_epoch=True, sync_dist=True, 
+                 batch_size=batch_size, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -199,229 +213,29 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         return log_probs, xlens, names, spks, texts
 
     def configure_optimizers(self):
-        optimiser = torch.optim.Adam(
-            self.parameters(), lr=self.cfg["training"]["lr"])
-        return [optimiser], [
-            {
-                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimisers = []
+
+        optimiser = torch.optim.Adadelta(self.output_layer.parameters(), 
+                                         lr=self.cfg["training"]["lr"],
+                                         rho=self.cfg["training"]["rho"], 
+                                         eps=self.cfg["training"]["eps"],
+                                     )
+        optimisers.append({"optimizer": optimiser, "lr_scheduler": {"scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimiser,
                     "min",
                     patience=self.cfg["training"]["lr_patience"],
                     verbose=True,
                     factor=self.cfg["training"]["factor"],
                     min_lr=self.cfg["training"]["min_lr"],
-                ),
-                "monitor": "valid_loss",
-            }
-        ]
+                ), "monitor": "valid_loss"}})
+        if self.cfg.model["finetune_layers"] > 0:
+            optimiser_wav2vec = torch.optim.Adam(
+                self.wav2vec.parameters(), lr=self.cfg["training"]["wav2vec_lr"])
+            optimisers.append({"optimizer": optimiser_wav2vec})
+        return optimisers
 
 
-class Wav2VecModel(pl.LightningModule):
-    def __init__(self, output_dim, lang_dir=None, cfg=None):
-        """
-        Args:
-
-        output_dim: int, the number of output units
-        lang_dir: str, the directory of the language data, e.g, data/lang
-        cfg: dict, actually this is a hydra config object, which contains all the configurations for the model
-
-        """
-
-        super().__init__()
-        self.output_dim = output_dim
-        self.cfg = cfg
-        self.save_hyperparameters()
-
-        bundle = getattr(torchaudio.pipelines, cfg.model["model"])
-        self.wav2vec = bundle.get_model()
-        self.freese_and_init()
-        self.encoder_output_size = self.cfg.model["encoder_output_size"]
-        self.batch_norm = nn.BatchNorm1d(self.encoder_output_size)
-        if 'two_layer_output' in self.cfg.model.keys() and self.cfg.model['two_layer_output']:
-            self.output_layer = nn.Sequential(
-                nn.Linear(self.encoder_output_size, self.encoder_output_size),
-                nn.ReLU(),
-                nn.Linear(self.encoder_output_size, self.output_dim)
-            )
-        else:
-            self.output_layer = nn.Linear(
-                self.encoder_output_size, self.output_dim)
-
-        if self.cfg.training.loss == "builtin_ctc":
-            self.lang = Lang(lang_dir)
-        elif self.cfg.training.loss == "k2":
-            self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
-
-        # SpecAugment with TimeMasking and FrequencyMasking only but no TimeStretching
-        # Implemented by torchaudio.transforms.TimeMasking and torchaudio.transforms.FrequencyMasking
-        if 'spec_augment' in self.cfg.model.keys() and self.cfg.model['spec_augment']:
-            self.time_masking = torchaudio.transforms.TimeMasking(
-                time_mask_param=cfg.model["time_mask_param"], p=0.3)
-            self.freq_masking = torchaudio.transforms.FrequencyMasking(
-                freq_mask_param=cfg.model["freq_mask_param"])
-
-    def freese_and_init(self):
-        self.wav2vec.aux = None  # get rid of the output linear layer in wav2vec model
-        # By default, only fine-tune the encoder part of the wav2vec model and fix the feature_extractor part
-        # if we don't set model.finetune_layers with a positive integer
-        for para in self.wav2vec.feature_extractor.parameters():
-            para.requires_grad = False
-        # TODO: add a config to control the finetune_layers so that we can only train the output layer
-        if "finetune_layers" in self.cfg.model.keys() and self.cfg.model['finetune_layers'] > 0:
-            for para in self.wav2vec.encoder.parameters():
-                para.requires_grad = False
-            for i in range(1, self.cfg.model['finetune_layers']+1):
-                for para in self.wav2vec.encoder.transformer.layers[-i].parameters():
-                    para.requires_grad = True
-
-
-        if 'train_output_layer_first' in self.cfg.training.keys() and self.cfg.training['train_output_layer_first']:
-            assert 'num_training_output_layer_steps' in self.cfg.training.keys(), 'num_training_output_layer_steps must be specified if train_output_layer_first is True'
-            logging.info('Freeze all the layers except the output layer for the first {} steps'.format(self.cfg.training['num_training_output_layer_steps']))
-            self.frozen_flag = False
-            self.finished_flag = False
-            # Take a note of which layers are trainable
-            self.trainable_wav2vec_paras = []
-            for name, para in self.wav2vec.named_parameters():
-                if para.requires_grad:
-                    self.trainable_wav2vec_paras.append(name)
-
-    def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
-        if self.cfg.training.loss in ["k2"]:
-            wavs = batch["wavs"]
-            lengths = batch["wav_lens"]
-            word_ids = batch["word_ids"]
-            target_lengths = batch["target_lengths"]
-
-            batch_num = int(wavs.shape[0])
-            log_probs, xlens = self(wavs, lengths)
-
-            supervision_segments = torch.tensor(
-                [[i, 0, xlens[i]] for i in range(batch_num)],
-                device="cpu",
-                dtype=torch.int32,
-            )
-
-            dense_fsa_vec = k2.DenseFsaVec(
-                log_probs=log_probs, supervision_segments=supervision_segments
-            )
-
-            decoding_graph = self.lang.compile_training_graph(
-                word_ids, log_probs.device
-            )
-
-            assert decoding_graph.requires_grad == False
-
-            numerator = graph.graphloss(
-                decoding_graph=decoding_graph,
-                dense_fsa_vec=dense_fsa_vec,
-                target_lengths=target_lengths,
-                reduction="mean",
-            )
-
-            if "no_den" in self.cfg.training.keys() and self.cfg.training.no_den:
-                loss = numerator
-            elif (
-                "no_den_grad" in self.cfg.training.keys()
-                and self.cfg.training.no_den_grad
-            ):
-                with torch.no_grad():
-                    den_decoding_graph = k2.create_fsa_vec(
-                        [self.lang.topo.to(log_probs.device)
-                         for _ in range(batch_num)]
-                    )
-
-                    assert den_decoding_graph.requires_grad == False
-
-                    denominator = graph.graphloss(
-                        decoding_graph=den_decoding_graph,
-                        dense_fsa_vec=dense_fsa_vec,
-                        target_lengths=target_lengths,
-                        reduction="mean",
-                    )
-                loss = numerator - denominator
-            else:
-                den_decoding_graph = k2.create_fsa_vec(
-                    [self.lang.topo.to(log_probs.device)
-                     for _ in range(batch_num)]
-                )
-
-                assert den_decoding_graph.requires_grad == False
-
-                denominator = graph.graphloss(
-                    decoding_graph=den_decoding_graph,
-                    dense_fsa_vec=dense_fsa_vec,
-                    target_lengths=target_lengths,
-                    reduction="mean",
-                )
-                loss = numerator - denominator
-        elif self.cfg.training.loss == "builtin_ctc":
-            wavs = batch["wavs"]
-            lengths = batch["wav_lens"]
-            target_lengths = batch["target_lengths"]
-            targets_ctc = batch["targets_ctc"]
-            log_probs, xlens = self(wavs, lengths)
-            loss = F.ctc_loss(
-                log_probs.permute(1, 0, 2),
-                targets_ctc,
-                xlens,
-                target_lengths,
-                reduction="mean",
-            )
-
-        else:
-            raise Exception(
-                "Unrecognised Loss Function %s" % (
-                    self.cfg["training"]["loss"])
-            )
-
-        return loss
-
-    def forward(self, x, xlens):
-        if "spec_augment" in self.cfg.model.keys() and self.cfg.model["spec_augment"] and self.training:
-            x, xlens = self.wav2vec.feature_extractor(x, xlens)
-            x = x.permute(0, 2, 1)
-            x = self.time_masking(x)
-            x = self.freq_masking(x)
-            x = x.permute(0, 2, 1)
-            x = self.wav2vec.encoder(x, xlens)
-        else:
-            x, xlens = self.wav2vec(x, xlens)
-        if "extra_subsample" in self.cfg.model.keys() and self.cfg.model["extra_subsample"] > 1:
-            x = x[:, ::int(self.cfg.model["extra_subsample"]), :]
-            xlens = xlens // int(self.cfg.model["extra_subsample"])
-        x = self.batch_norm(x.permute(0, 2, 1))
-        x = x.permute(0, 2, 1)
-        x = self.output_layer(x)
-        x = F.log_softmax(x, dim=-1)
-        return x, xlens
-
-    def training_step(self, batch, batch_idx, optimizer_idx=None):
-        loss = self.compute_loss(batch, batch_idx, optimizer_idx)
-        self.log("loss", loss, on_epoch=True, sync_dist=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        loss = self.compute_loss(batch, batch_idx)
-        self.log("valid_loss", loss, prog_bar=True,
-                 on_epoch=True, sync_dist=True)
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        loss = self.compute_loss(batch, batch_idx)
-        self.log("test_loss", loss, on_epoch=True, sync_dist=True)
-        return loss
-
-    def predict_step(self, batch, batch_idx):
-        wavs = batch["wavs"]
-        lengths = batch["wav_lens"]
-        targets = batch["targets"]
-        names = batch["names"]
-        spks = batch["spks"]
-        texts = batch["texts"]
-        log_probs, xlens = self(wavs, lengths)
-        return log_probs, xlens, names, spks, texts
-
+class Wav2VecModel(Wav2VecModelNoWarmup):
     def configure_optimizers(self):
         optimiser = torch.optim.Adam(
             self.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9
