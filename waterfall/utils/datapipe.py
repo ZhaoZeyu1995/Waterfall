@@ -335,12 +335,24 @@ class Dataset(torch.utils.data.Dataset):
         self.max_duration = max_duration
         self.sort = sort
         self.lang = lang if isinstance(lang, Lang) else Lang(lang)
+        # Check if there is a segment file
+        self.segments = None
+        if os.path.exists(os.path.join(self.data_dir, 'segments')):
+            self.segments = os.path.join(self.data_dir, 'segments')
 
         self.wav_scp = os.path.join(self.data_dir, 'wav.scp')
         if load_wav:
-            self.utt2wav = kaldiio.load_scp(self.wav_scp)
+            if self.segments:
+                logging.info("Loading wavs from segments, as segments file found")
+                self.utt2wav = kaldiio.load_scp(self.wav_scp, segments=self.segments)
+            else:
+                logging.info("Loading wavs from wav.scp, as no segments file found")
+                self.utt2wav = kaldiio.load_scp(self.wav_scp)
 
-        self.uttids = read_keys(self.wav_scp)
+        if self.segments:
+            self.uttids = read_keys(self.segments)
+        else:
+            self.uttids = read_keys(self.wav_scp)
         self.utt2spk = read_dict(os.path.join(self.data_dir, 'utt2spk'))
         self.utt2text = read_dict(os.path.join(self.data_dir, 'text'))
 

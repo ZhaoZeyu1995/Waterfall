@@ -1,0 +1,3 @@
+train_set: data/train_sp
+dev_set: data/dev
+lang_dir: ???
