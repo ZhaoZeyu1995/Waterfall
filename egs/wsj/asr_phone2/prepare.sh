@@ -19,7 +19,7 @@ wsj1=/group/corporapublic/wsj/wsj1
 corpus=/group/corporapublic/wsj
 
 topos="ctc mmictc mmictc-1 2state 2state-1 3state-skip 3state-skip-1 3state-skip-2"
-lm_suffixes="test_tg test_bd_fg"
+lm_suffixes="test_bd_tg test_bd_fg"
 
 
 . utils/parse_options.sh || exit 1;

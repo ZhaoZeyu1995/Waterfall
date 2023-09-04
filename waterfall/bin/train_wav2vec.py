@@ -122,7 +122,6 @@ def main(cfg):
             )
         )
 
-    accumulate_grad_batches = cfg.training.accumulate_grad_batches
     logger = pl.loggers.WandbLogger(
         project="waterfall-%s-%s"
         % (
@@ -141,14 +140,11 @@ def main(cfg):
         ):
             trainer = pl.Trainer(
                 devices=cfg.training.gpus,
-                strategy=cfg.training.strategy,
+                strategy=DDPStrategy(static_graph=True),
                 deterministic=False,
                 resume_from_checkpoint=cfg.training.checkpoint,
                 max_epochs=cfg.training.max_epochs,
                 logger=logger,
-                accumulate_grad_batches=accumulate_grad_batches,
-                gradient_clip_val=cfg.training.grad_clip,
-                gradient_clip_algorithm="norm" if "grad-clip" in cfg.keys() else None,
                 callbacks=callbacks,
                 sync_batchnorm=True,
                 val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,
@@ -162,13 +158,10 @@ def main(cfg):
             torch.cuda.empty_cache()
             trainer = pl.Trainer(
                 devices=cfg.training.gpus,
-                strategy=cfg.training.strategy,
+                strategy=DDPStrategy(static_graph=True),
                 deterministic=False,
                 max_epochs=cfg.training.max_epochs,
                 logger=logger,
-                accumulate_grad_batches=accumulate_grad_batches,
-                gradient_clip_val=cfg.training.grad_clip,
-                gradient_clip_algorithm="norm" if "grad-clip" in cfg.keys() else None,
                 callbacks=callbacks,
                 sync_batchnorm=True,
                 val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,
@@ -180,9 +173,6 @@ def main(cfg):
             deterministic=False,
             max_epochs=cfg.training.max_epochs,
             logger=logger,
-            accumulate_grad_batches=accumulate_grad_batches,
-            gradient_clip_val=cfg.training.grad_clip,
-            gradient_clip_algorithm="norm" if "grad-clip" in cfg.keys() else None,
             callbacks=callbacks,
             sync_batchnorm=True,
             val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,

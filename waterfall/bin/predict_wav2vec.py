@@ -57,9 +57,10 @@ def predict(data_dir,
             for batch_idx, batch in tqdm(enumerate(data_gen)):
                 # batch is a dict and contains the following keys: "wavs", "wav_lens", "targests", "names", "spks", "texts"
                 # We need to put wavs and wav_lens on the gpu
-                batch['wavs'] = batch['wavs'].cuda()
-                batch['wav_lens'] = batch['wav_lens'].cuda()
-                results = model.predict_step(batch, batch_idx)
+                with torch.no_grad():
+                    batch['wavs'] = batch['wavs'].cuda()
+                    batch['wav_lens'] = batch['wav_lens'].cuda()
+                    results = model.predict_step(batch, batch_idx)
                 log_probs = results[0]
                 log_probs = log_probs.cpu().detach().numpy()
                 xlens = results[1]

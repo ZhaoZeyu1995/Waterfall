@@ -3,36 +3,33 @@ gpus: ???
 name: ???
 output_dir: ${hydra:run.dir}
 # batch
-batch_size: 6
-accumulate_grad_batches: 1
+batch_size: 1
+accumulate_grad_batches: 6
 # data pipeline
 num_workers: 4
 sort: ascending
 # multi-gpu training
-strategy: ddp_find_unused_parameters_false
-# optimiser
-#optimiser: adam
-transformer-warmup-steps: 25000
-final_lr: 1e-4
+strategy: ddp # unchangeable actually
 
-# output_layers
+# optimisers
+# output_layers Adadelta
 lr: 0.9
 rho: 0.95
 eps: 1e-8
 factor: 0.1
 lr_patience: 2
 min_lr: 1e-5
-# wav2vec 2.0
+# wav2vec 2.0 Adam
 wav2vec_lr: 1e-4
 
 save_top_k: 4
 # random seed
 seed: 777
 # early_stopping
-early_stopping: true
+early_stopping: false
 patience: 20
 # for debugging
-max_steps: -1
+max_steps: 2
 max_epochs: 1000
 
 grad_clip: 5
