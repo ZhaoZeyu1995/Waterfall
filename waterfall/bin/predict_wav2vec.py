@@ -31,7 +31,7 @@ def predict(data_dir,
     batch_size, int, by default 1
     '''
 
-    model = wav2vec.Wav2VecModel.load_from_checkpoint(model_dir).cuda()
+    model = wav2vec.Wav2VecModelNoWarmup.load_from_checkpoint(model_dir).cuda()
 
     os.makedirs(output_dir, exist_ok=True)
 
