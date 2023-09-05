@@ -15,7 +15,7 @@ nj=10
 do_delta=false
 
 topos="ctc mmictc mmictc-1 2state 2state-1 3state-skip 3state-skip-1 3state-skip-2"
-lm_suffixes="test_tgpr"
+lm_suffixes="fgsmall fgbig"
 
 # data
 data=$LOCAL_HOME/data/librispeech
@@ -35,34 +35,27 @@ train_dev=dev
 recog_set="dev test"
 
 
+if [ $stage -le -1 ] && [ $stop_stage -ge -1 ]; then
+    local/download_data.sh || exit 1
+fi
+
+
 if [ $stage -le 0 ] && [ $stop_stage -ge 0 ]; then
     echo "stage 0: data preparation"
     # format the data as Kaldi data directories
-    #
-    local/download_data.sh || exit 1
-
     local/prepare_data.sh || exit 1
+    # Split speakers up into 3-minute chunks.  This doesn't hurt adaptation, and
+    # lets us use more jobs for decoding etc.
+    # [we chose 3 minutes because that gives us 38 speakers for the dev data, which is
+    #  more than our normal 30 jobs.]
+    for dset in dev test train; do
+        utils/data/modify_speaker_info.sh --seconds-per-spk-max 180 data/${dset}.orig data/${dset} || exit 1
+    done
 
     for x in train dev test; do
         utils/data/get_utt2num_frames.sh data/$x || exit 1
     done
 fi
-
-## Optional text corpus normalization and LM training
-## These scripts are here primarily as a documentation of the process that has been
-## used to build the LM. Most users of this recipe will NOT need/want to run
-## this step. The pre-built language models and the pronunciation lexicon, as
-## well as some intermediate data(e.g. the normalized text used for LM training),
-## are available for download at http://www.openslr.org/11/
-#local/lm/train_lm.sh $LM_CORPUS_ROOT \
-#  data/local/lm/norm/tmp data/local/lm/norm/norm_texts data/local/lm
-
-## Optional G2P training scripts.
-## As the LM training scripts above, this script is intended primarily to
-## document our G2P model creation process
-#local/g2p/train_g2p.sh data/local/dict/cmudict data/local/lm
-
-
 
 if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     echo "stage 1: combine data "
@@ -103,7 +96,8 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
     utils/prepare_lang.sh --position-dependent-phones false --sil_prob 0.0 data/local/dict_phone_test \
         "<UNK>" data/local/lang_phone_test_tmp data/lang_eval || exit 1
 
-    local/prepare_lm.sh || exit 1
+    local/ted_download_lm.sh || exit 1
+    local/format_lms.sh data/lang_eval || exit 1
 fi
 
 
