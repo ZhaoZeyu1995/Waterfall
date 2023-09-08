@@ -20,5 +20,7 @@ egs/*/*/wandb
 egs/*/*/.hydra
 egs/*/*/conf/debug.yaml
 egs/yesno/asr/waves_yesno*
+egs/tedlium3/asr_phone/inputs/cluster0
+egs/tedlium3/asr_phone/inputs/cluster1
 
 tools/kaldi
