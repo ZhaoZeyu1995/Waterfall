@@ -144,7 +144,7 @@ def main(cfg):
         ):
             trainer = pl.Trainer(
                 devices=cfg.training.gpus,
-                strategy=DDPStrategy(static_graph=True),
+                strategy=cfg.training.strategy,
                 deterministic=False,
                 resume_from_checkpoint=cfg.training.checkpoint,
                 max_epochs=cfg.training.max_epochs,
@@ -162,7 +162,7 @@ def main(cfg):
             torch.cuda.empty_cache()
             trainer = pl.Trainer(
                 devices=cfg.training.gpus,
-                strategy=DDPStrategy(static_graph=True),
+                strategy=cfg.training.strategy,
                 deterministic=False,
                 max_epochs=cfg.training.max_epochs,
                 logger=logger,
@@ -173,7 +173,7 @@ def main(cfg):
     else:
         trainer = pl.Trainer(
             devices=cfg.training.gpus,
-            strategy=DDPStrategy(static_graph=True),
+            strategy=cfg.training.strategy,
             deterministic=False,
             max_epochs=cfg.training.max_epochs,
             logger=logger,
