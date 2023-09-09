@@ -1,0 +1,36 @@
+loss: k2
+gpus: ???
+name: ???
+output_dir: ${hydra:run.dir}
+# batch
+batch_size: 1
+accumulate_grad_batches: 6
+# data pipeline
+num_workers: 4
+sort: null
+# multi-gpu training
+strategy: ddp # unchangeable actually
+
+# optimisers
+# output_layers Adadelta
+lr: 0.9
+rho: 0.95
+eps: 1e-8
+factor: 0.1
+lr_patience: 2
+min_lr: 1e-5
+# wav2vec 2.0 Adam
+wav2vec_lr: 1e-4
+
+save_top_k: 4
+# random seed
+seed: 777
+# early_stopping
+early_stopping: false
+patience: 20
+# for debugging
+max_steps: -1
+max_epochs: 2
+
+grad_clip: 5
+nowarmup: true

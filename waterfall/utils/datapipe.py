@@ -304,6 +304,7 @@ class Dataset(torch.utils.data.Dataset):
                  data_dir,
                  lang: Lang,
                  ratio_th=None,
+                 min_frames=None,
                  max_duration=None,
                  sort=None,
                  ctc_target=False,
@@ -324,6 +325,10 @@ class Dataset(torch.utils.data.Dataset):
         args:
         data_dir: str, the data directory
         lang: Lang or str, the language directory
+        ratio_th: float, the threshold of the ratio of the number of frames of the utterance to the number of phones in the utterance, by default None
+        min_frames: int, the minimum number of frames of the utterance, by default None
+        max_duration: float, the maximum duration (in seconds) of the utterance, by default None
+        sort: str, the sorting method, by default None, ["ascending", "descending"]
         ctc_target: bool, whether or not prepare ctc targets which is stored with the key 'target_ctc', by default False
         load_wav: bool, whether or not load wav from wav.scp, by default False
         load_feats: bool, whether or not load feats from $data_dir/dump/delta{true/flase}/feats.scp, by default False
@@ -332,6 +337,7 @@ class Dataset(torch.utils.data.Dataset):
         '''
         self.data_dir = data_dir
         self.ratio_th = ratio_th
+        self.min_frames = min_frames
         self.max_duration = max_duration
         self.sort = sort
         self.lang = lang if isinstance(lang, Lang) else Lang(lang)
@@ -377,7 +383,15 @@ class Dataset(torch.utils.data.Dataset):
 
         self.transforms = transforms
 
+        if self.min_frames is not None:
+            num_short_utt = len([uttid for uttid in self.uttids if self.utt2num_frames[uttid] < self.min_frames])
+            logging.info(f"Filtering utterances with less than {self.min_frames} frames, {num_short_utt} utterances are removed")
+            self.uttids = [uttid for uttid in self.uttids if self.utt2num_frames[uttid] >= self.min_frames]
+
         if self.max_duration is not None:
+            logging.info(f"Filtering utterances with more than {self.max_duration} seconds")
+            num_long_utt = len([uttid for uttid in self.uttids if self.utt2dur[uttid] > self.max_duration])
+            logging.info(f"Filtering utterances with more than {self.max_duration} seconds, {num_long_utt} utterances are removed")
             self.uttids = [uttid for uttid in self.uttids if self.utt2dur[uttid] <= self.max_duration]
 
         if self.sort is not None:

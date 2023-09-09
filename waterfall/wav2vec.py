@@ -12,12 +12,12 @@ import time
 
 
 class Wav2VecModelNoWarmup(pl.LightningModule):
-    def __init__(self, output_dim, lang_dir=None, cfg=None):
+    def __init__(self, output_dim, lang=None, cfg=None):
         """
         Args:
 
         output_dim: int, the number of output units
-        lang_dir: str, the directory of the language data, e.g, data/lang
+        lang: str or a Lang object, if str, the directory of the language data, e.g, data/lang
         cfg: dict, actually this is a hydra config object, which contains all the configurations for the model
 
         """
@@ -25,7 +25,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         super().__init__()
         self.output_dim = output_dim
         self.cfg = cfg
-        self.save_hyperparameters()
+        # self.save_hyperparameters()
 
         bundle = getattr(torchaudio.pipelines, cfg.model["model"])
         wav2vec = bundle.get_model()
@@ -44,11 +44,15 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
             nn.LeakyReLU(),
             nn.Linear(self.encoder_output_size, self.output_dim)
         )
-
-        if self.cfg.training.loss == "builtin_ctc":
-            self.lang = Lang(lang_dir)
-        elif self.cfg.training.loss == "k2":
-            self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
+        if isinstance(lang, str):
+            if self.cfg.training.loss == "builtin_ctc":
+                self.lang = Lang(lang)
+            elif self.cfg.training.loss == "k2":
+                self.lang = Lang(lang, load_topo=True, load_lexicon=True)
+        elif isinstance(lang, Lang):
+            self.lang = lang
+        else:
+            raise ValueError("lang should be a str or a Lang object")
 
         # SpecAugment with TimeMasking and FrequencyMasking only but no TimeStretching
         # Implemented by torchaudio.transforms.TimeMasking and torchaudio.transforms.FrequencyMasking
@@ -288,8 +292,8 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
 
 
 class Wav2VecModel(Wav2VecModelNoWarmup):
-    def __init__(self, output_dim, lang_dir=None, cfg=None):
-        super().__init__(output_dim, lang_dir, cfg)
+    def __init__(self, output_dim, lang=None, cfg=None):
+        super().__init__(output_dim, lang, cfg)
         assert "final_lr" in self.cfg.training.keys(
         ), "final_lr must be specified in the config file"
         self.final_lr = self.cfg.training["final_lr"]

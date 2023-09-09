@@ -1,0 +1,3 @@
+train_set: data/ihm_train
+dev_set: data/ihm_dev
+lang_dir: ???

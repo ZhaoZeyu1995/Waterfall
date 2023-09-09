@@ -41,7 +41,10 @@ def main(cfg):
     else:
         logging.info("Not sorting data")
 
-    lang = datapipe.Lang(to_absolute_path(cfg.data.lang_dir))
+    if cfg.training.loss == "builtin_ctc":
+        lang = datapipe.Lang(to_absolute_path(cfg.data.lang_dir))
+    elif cfg.training.loss == "k2":
+        lang = datapipe.Lang(to_absolute_path(cfg.data.lang_dir), load_topo=True, load_lexicon=True)
 
     train_data = datapipe.Dataset(
         to_absolute_path(cfg.data.train_set),
@@ -50,6 +53,7 @@ def main(cfg):
         load_wav=True,
         transforms=None,
         ratio_th=cfg.model.ratio_th,
+        min_frames=cfg.model.min_frames,
         max_duration=cfg.model.max_duration,
         sort=cfg.training.sort,
     )
@@ -60,6 +64,7 @@ def main(cfg):
         load_wav=True,
         transforms=None,
         ratio_th=cfg.model.ratio_th,
+        min_frames=cfg.model.min_frames,
         max_duration=cfg.model.max_duration,
     )
 
@@ -84,18 +89,17 @@ def main(cfg):
     if cfg.training.nowarmup:
         logging.info("Training without warmup")
         model = wav2vec.Wav2VecModelNoWarmup(
-            train_data.lang.num_nn_output,
+            lang.num_nn_output,
             cfg=cfg,
-            lang_dir=cfg.data.lang_dir,
+            lang=lang,
         )
     else:
         model = wav2vec.Wav2VecModel(
-            train_data.lang.num_nn_output,
+            lang.num_nn_output,
             cfg=cfg,
-            lang_dir=cfg.data.lang_dir,
+            lang=lang,
         )
 
-    # os.makedirs('exp/%s' % (args.name), exist_ok=True)
     model_checkpoint = pl.callbacks.ModelCheckpoint(
         monitor="valid_loss",
         save_top_k=cfg.training.save_top_k,
