@@ -51,8 +51,10 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
                 self.lang = Lang(lang, load_topo=True, load_lexicon=True)
         elif isinstance(lang, Lang):
             self.lang = lang
+        elif lang is None:
+            self.lang = None
         else:
-            raise ValueError("lang should be a str or a Lang object")
+            raise ValueError("lang should be a str or a Lang object but got {}".format(lang))
 
         # SpecAugment with TimeMasking and FrequencyMasking only but no TimeStretching
         # Implemented by torchaudio.transforms.TimeMasking and torchaudio.transforms.FrequencyMasking
