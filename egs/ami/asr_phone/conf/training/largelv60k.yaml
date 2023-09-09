@@ -7,7 +7,7 @@ batch_size: 1
 accumulate_grad_batches: 6
 # data pipeline
 num_workers: 4
-sort: null
+sort: ascending
 # multi-gpu training
 strategy: ddp # unchangeable actually
 
