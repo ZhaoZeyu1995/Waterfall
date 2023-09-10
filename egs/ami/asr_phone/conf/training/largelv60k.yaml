@@ -11,7 +11,7 @@ sort: ascending
 # multi-gpu training
 accelerator: gpu
 strategy: auto # unchangeable actually
-precision: 16-mixed
+precision: 32
 split_dev: 0.125
 
 # optimisers

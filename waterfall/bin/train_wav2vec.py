@@ -75,6 +75,12 @@ def main(cfg):
         dev_data = random_split(dev_data, [num_kept, num_discarded])[0]
         logging.info("Kept %d examples, discarded %d examples" % (num_kept, num_discarded))
 
+    logging.info("Training set size: %d" % len(train_data))
+    shuffle = True if cfg.training.sort is None else False
+    if shuffle:
+        logging.info("Shuffling training set")
+    else:
+        logging.info("Not shuffling training set as it is already sorted {} by duration".format(cfg.training.sort))
     train_gen = DataLoader(
         train_data,
         batch_size=batch_size,
@@ -154,7 +160,6 @@ def main(cfg):
                 accelerator=cfg.training.accelerator,
                 precision=cfg.training.precision,
                 devices=cfg.training.gpus,
-                strategy=cfg.training.strategy,
                 deterministic=False,
                 resume_from_checkpoint=cfg.training.checkpoint,
                 max_epochs=cfg.training.max_epochs,
@@ -174,7 +179,6 @@ def main(cfg):
                 accelerator=cfg.training.accelerator,
                 precision=cfg.training.precision,
                 devices=cfg.training.gpus,
-                strategy=cfg.training.strategy,
                 deterministic=False,
                 max_epochs=cfg.training.max_epochs,
                 logger=logger,
@@ -187,7 +191,6 @@ def main(cfg):
             accelerator=cfg.training.accelerator,
             precision=cfg.training.precision,
             devices=cfg.training.gpus,
-            strategy=cfg.training.strategy,
             deterministic=False,
             max_epochs=cfg.training.max_epochs,
             logger=logger,
