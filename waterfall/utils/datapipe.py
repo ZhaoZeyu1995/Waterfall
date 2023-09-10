@@ -389,7 +389,6 @@ class Dataset(torch.utils.data.Dataset):
             self.uttids = [uttid for uttid in self.uttids if self.utt2num_frames[uttid] >= self.min_frames]
 
         if self.max_duration is not None:
-            logging.info(f"Filtering utterances with more than {self.max_duration} seconds")
             num_long_utt = len([uttid for uttid in self.uttids if self.utt2dur[uttid] > self.max_duration])
             logging.info(f"Filtering utterances with more than {self.max_duration} seconds, {num_long_utt} utterances are removed")
             self.uttids = [uttid for uttid in self.uttids if self.utt2dur[uttid] <= self.max_duration]
@@ -397,9 +396,11 @@ class Dataset(torch.utils.data.Dataset):
         if self.sort is not None:
             assert self.sort in ["ascending", "descending"], "sort must be ascending or descending"
             if self.sort == "ascending":
-                self.uttids = sorted(self.uttids, key=lambda x: self.utt2dur[x])
+                logging.info("Sorting utterances by ascending order of number of frames")
+                self.uttids = sorted(self.uttids, key=lambda x: self.utt2num_frames[x])
             else:
-                self.uttids = sorted(self.uttids, key=lambda x: self.utt2dur[x], reverse=True)
+                logging.info("Sorting utterances by descending order of number of frames")
+                self.uttids = sorted(self.uttids, key=lambda x: self.utt2num_frames[x], reverse=True)
 
     def __len__(self):
         return len(self.uttids)

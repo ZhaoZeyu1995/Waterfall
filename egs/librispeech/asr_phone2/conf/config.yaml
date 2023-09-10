@@ -1,0 +1,5 @@
+defaults:
+  - data: train960
+  - model: wav2vec.largelv60k
+  - training: largelv60k
+  - specaug: convention
