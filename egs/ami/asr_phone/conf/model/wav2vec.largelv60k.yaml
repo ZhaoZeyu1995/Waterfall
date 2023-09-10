@@ -1,7 +1,7 @@
 model: WAV2VEC2_LARGE_LV60K
 encoder_output_size: 1024
 finetune_layers: 12
-ratio_th: 4
+ratio_th: 4.5
 min_frames: 25
-max_duration: 35
+max_duration: 20
 extra_subsample: 1 # By default, the frame rate of wav2vec model is 20ms, which implicitly has a subsampling factor of 2 compared to 10ms. This is the EXTRA subsample rate based on the fact.

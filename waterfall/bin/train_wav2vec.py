@@ -143,6 +143,8 @@ def main(cfg):
             and not cfg.training.load_weights_only
         ):
             trainer = pl.Trainer(
+                accelerator=cfg.training.accelerator,
+                precision=cfg.training.precision,
                 devices=cfg.training.gpus,
                 strategy=cfg.training.strategy,
                 deterministic=False,
@@ -161,6 +163,8 @@ def main(cfg):
             del checkpoint
             torch.cuda.empty_cache()
             trainer = pl.Trainer(
+                accelerator=cfg.training.accelerator,
+                precision=cfg.training.precision,
                 devices=cfg.training.gpus,
                 strategy=cfg.training.strategy,
                 deterministic=False,
@@ -172,6 +176,8 @@ def main(cfg):
             )
     else:
         trainer = pl.Trainer(
+            accelerator=cfg.training.accelerator,
+            precision=cfg.training.precision,
             devices=cfg.training.gpus,
             strategy=cfg.training.strategy,
             deterministic=False,

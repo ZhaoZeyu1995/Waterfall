@@ -9,7 +9,9 @@ accumulate_grad_batches: 6
 num_workers: 4
 sort: ascending
 # multi-gpu training
-strategy: ddp_find_unused_parameters_true # unchangeable actually
+accelerator: gpu
+strategy: auto # unchangeable actually
+precision: 16-mixed
 
 # optimisers
 # output_layers Adadelta
