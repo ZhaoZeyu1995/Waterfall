@@ -4,7 +4,7 @@ import os
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 import pytorch_lightning as pl
 from pytorch_lightning.strategies import DDPStrategy
 import argparse
@@ -68,6 +68,13 @@ def main(cfg):
         max_duration=cfg.model.max_duration,
     )
 
+    if "split_dev" in cfg.training.keys() and cfg.training.split_dev > 0:
+        logging.info("Splitting dev set to make it smaller")
+        num_kept = int(cfg.training.split_dev * len(dev_data))
+        num_discarded = len(dev_data) - num_kept
+        dev_data = random_split(dev_data, [num_kept, num_discarded])[0]
+        logging.info("Kept %d examples, discarded %d examples" % (num_kept, num_discarded))
+
     train_gen = DataLoader(
         train_data,
         batch_size=batch_size,
@@ -85,6 +92,7 @@ def main(cfg):
         persistent_workers=True,
         collate_fn=datapipe.collate_fn_sorted,
     )
+
 
     if cfg.training.nowarmup:
         logging.info("Training without warmup")

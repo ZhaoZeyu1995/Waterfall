@@ -12,6 +12,7 @@ sort: ascending
 accelerator: gpu
 strategy: auto # unchangeable actually
 precision: 16-mixed
+split_dev: 0.125
 
 # optimisers
 # output_layers Adadelta
