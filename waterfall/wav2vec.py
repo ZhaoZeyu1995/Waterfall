@@ -52,6 +52,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         elif isinstance(lang, Lang):
             self.lang = lang
         elif lang is None:
+            logging.info("No lang object is provided. This is fine if you are not training the model.")
             self.lang = None
         else:
             raise ValueError("lang should be a str or a Lang object but got {}".format(lang))
@@ -203,6 +204,10 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         batch_size = int(batch["wavs"].shape[0])
         if "accumulate_grad_batches" not in self.cfg.training.keys() or self.cfg.training["accumulate_grad_batches"] == 1:
             loss = self.compute_loss(batch, batch_idx)
+            # Check if loss is NaN or inf
+            if torch.isnan(loss) or torch.isinf(loss):
+                logging.warning("NaN/Inf in loss, skipping batch. Please note that if this happens frequently, \
+                                it is likely that your model diverged or there is something wrong with the data pipeline.")
             self.log("loss", loss, on_epoch=True, sync_dist=True,
                      batch_size=batch_size, prog_bar=True)
 
@@ -210,8 +215,18 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
             if self.cfg.model["finetune_layers"] > 0:
                 opt_wav2vec.zero_grad()
             self.manual_backward(loss)
+            if torch.isnan(loss) or torch.isinf(loss):
+                logging.info("Trying to recover from NaN/Inf loss by clipping gradients")
+            self.clip_gradients(opt_output,
+                                gradient_clip_val=0.5 if "grad_clip" not in self.cfg.training.keys(
+                                ) else self.cfg.training["grad_clip"],
+                                gradient_clip_algorithm="norm" if "grad_clip_algorithm" not in self.cfg.training.keys(
+                                ) else self.cfg.training["grad_clip_algorithm"],
+                                )
             opt_output.step()
             if self.cfg.model["finetune_layers"] > 0:
+                if torch.isnan(loss) or torch.isinf(loss):
+                    logging.info("Trying to recover from NaN/Inf loss by clipping gradients")
                 self.clip_gradients(opt_wav2vec,
                                     gradient_clip_val=0.5 if "grad_clip" not in self.cfg.training.keys(
                                     ) else self.cfg.training["grad_clip"],

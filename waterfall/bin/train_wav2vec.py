@@ -158,6 +158,7 @@ def main(cfg):
         ):
             trainer = pl.Trainer(
                 accelerator=cfg.training.accelerator,
+                strategy=cfg.training.strategy,
                 precision=cfg.training.precision,
                 devices=cfg.training.gpus,
                 deterministic=False,
@@ -178,6 +179,7 @@ def main(cfg):
             trainer = pl.Trainer(
                 accelerator=cfg.training.accelerator,
                 precision=cfg.training.precision,
+                strategy=cfg.training.strategy,
                 devices=cfg.training.gpus,
                 deterministic=False,
                 max_epochs=cfg.training.max_epochs,
@@ -190,6 +192,7 @@ def main(cfg):
         trainer = pl.Trainer(
             accelerator=cfg.training.accelerator,
             precision=cfg.training.precision,
+            strategy=cfg.training.strategy,
             devices=cfg.training.gpus,
             deterministic=False,
             max_epochs=cfg.training.max_epochs,
