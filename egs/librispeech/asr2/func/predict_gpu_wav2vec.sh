@@ -7,6 +7,8 @@
 . ./path.sh || exit 1
 . ./cmd.sh || exit 1
 
+echo "$0 $@"  # Print the command line for logging
+
 gpus=1
 batch_size=10
 

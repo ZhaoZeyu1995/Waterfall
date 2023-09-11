@@ -15,7 +15,7 @@ beams='16'
 decode_sets="dev_clean dev_other test_clean test_other"
 lang_dir=data/lang_tg
 suffix= 
-predict_suffix= 
+predict_suffix=
 
 
 . ./utils/parse_options.sh
@@ -26,21 +26,30 @@ graph=${lang_dir}/TLG.fst
 
 for decode_set in $decode_sets; do
     data_dir=data/$decode_set
-    predict_dir=$exp_dir/decode_${decode_set}_${suffix}
-    if [ ! -d $predict_dir ]; then
-        mkdir -p $predict_dir
-        for f in $exp_dir/predict_${decode_set}${predict_suffix}/*; do
-            if [[ $f == *.ark ]]; then
-                continue
-            fi
-            [ -f $f ] || continue
-            [ -f $f ] && [ ! -f $predict_dir/$(basename $f) ] && cp $f $predict_dir
-        done
+    predict_dir=$exp_dir/predict_${decode_set}
+    decode_dir=$exp_dir/decode_${decode_set}
+    if [ ! -z $suffix ]; then
+        decode_dir=${decode_dir}_${suffix}
     fi
+    if [ ! -z $predict_suffix ]; then
+        predict_dir=${predict_dir}_${predict_suffix}
+        decode_dir=${decode_dir}_${predict_suffix}
+    fi
+    if [ ! -d $decode_dir ]; then
+        mkdir -p $decode_dir
+    fi
+    for x in $predict_dir/*; do
+        if [[ $x == *.ark ]]; then
+            continue
+        fi 
+        if [ -f $x ]; then
+            cp $x $decode_dir
+        fi
+    done
     for beam in $beams; do 
         for maxac in $max_active; do 
             for acwt in $acoustic_scale; do
-                func/decode_faster.sh --nj $nj --max_active $maxac --acoustic_scale $acwt --beam $beam $data_dir $lang_dir $predict_dir
+                func/decode_faster.sh --nj $nj --max_active $maxac --acoustic_scale $acwt --beam $beam $data_dir $lang_dir $decode_dir
             done
         done
     done
