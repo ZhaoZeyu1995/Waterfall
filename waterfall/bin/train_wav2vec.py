@@ -84,7 +84,7 @@ def main(cfg):
     train_gen = DataLoader(
         train_data,
         batch_size=batch_size,
-        shuffle=True if cfg.training.sort is None else False,
+        shuffle=shuffle,
         num_workers=cfg.training.num_workers,
         persistent_workers=True,
         collate_fn=datapipe.collate_fn_sorted,
@@ -157,9 +157,9 @@ def main(cfg):
             and not cfg.training.load_weights_only
         ):
             trainer = pl.Trainer(
-                accelerator=cfg.training.accelerator,
-                strategy=cfg.training.strategy,
-                precision=cfg.training.precision,
+                accelerator="gpu" if "accelerator" not in cfg.training.keys() else cfg.training.accelerator,
+                strategy="auto" if "strategy" not in cfg.training.keys() else cfg.training.strategy,
+                precision=32 if "precision" not in cfg.training.keys() else cfg.training.precision,
                 devices=cfg.training.gpus,
                 deterministic=False,
                 resume_from_checkpoint=cfg.training.checkpoint,
@@ -177,9 +177,9 @@ def main(cfg):
             del checkpoint
             torch.cuda.empty_cache()
             trainer = pl.Trainer(
-                accelerator=cfg.training.accelerator,
-                precision=cfg.training.precision,
-                strategy=cfg.training.strategy,
+                accelerator="gpu" if "accelerator" not in cfg.training.keys() else cfg.training.accelerator,
+                strategy="auto" if "strategy" not in cfg.training.keys() else cfg.training.strategy,
+                precision=32 if "precision" not in cfg.training.keys() else cfg.training.precision,
                 devices=cfg.training.gpus,
                 deterministic=False,
                 max_epochs=cfg.training.max_epochs,
@@ -190,9 +190,9 @@ def main(cfg):
             )
     else:
         trainer = pl.Trainer(
-            accelerator=cfg.training.accelerator,
-            precision=cfg.training.precision,
-            strategy=cfg.training.strategy,
+            accelerator="gpu" if "accelerator" not in cfg.training.keys() else cfg.training.accelerator,
+            strategy="auto" if "strategy" not in cfg.training.keys() else cfg.training.strategy,
+            precision=32 if "precision" not in cfg.training.keys() else cfg.training.precision,
             devices=cfg.training.gpus,
             deterministic=False,
             max_epochs=cfg.training.max_epochs,
