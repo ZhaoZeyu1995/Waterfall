@@ -105,7 +105,7 @@ def main(cfg):
 
     if 'checkpoint' in cfg.training.keys() and cfg.training.checkpoint is not None:
         if 'load_weights_only' in cfg.training.keys() and not cfg.training.load_weights_only:
-            trainer = pl.Trainer(gpus=cfg.training.gpus,
+            trainer = pl.Trainer(devices=cfg.training.gpus,
                                  strategy=cfg.training.strategy,
                                  deterministic=False,
                                  resume_from_checkpoint=cfg.training.checkpoint,
@@ -124,7 +124,7 @@ def main(cfg):
             model.load_state_dict(checkpoint['state_dict'])
             del checkpoint
             torch.cuda.empty_cache()
-            trainer = pl.Trainer(gpus=cfg.training.gpus,
+            trainer = pl.Trainer(devices=cfg.training.gpus,
                                  strategy=cfg.training.strategy,
                                  deterministic=False,
                                  max_epochs=cfg.training.max_epochs,
@@ -137,7 +137,7 @@ def main(cfg):
                                  val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,
                                  )
     else:
-        trainer = pl.Trainer(gpus=cfg.training.gpus,
+        trainer = pl.Trainer(devices=cfg.training.gpus,
                              strategy=cfg.training.strategy,
                              deterministic=False,
                              max_epochs=cfg.training.max_epochs,
