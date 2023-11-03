@@ -1,5 +1,5 @@
 defaults:
-  - data: train960
-  - model: conformer.sub4
-  - training: convention
+  - data: wsj
+  - model: wav2vec.base960
+  - training: base960h
   - specaug: convention
