@@ -53,7 +53,7 @@ def main(cfg):
         load_wav=True,
         transforms=None,
         ratio_th=cfg.model.ratio_th,
-        min_frames=cfg.model.min_frames,
+        min_frames=None if "min_frames" in cfg.model else cfg.model.min_frames,
         max_duration=cfg.model.max_duration,
         sort=cfg.training.sort,
     )
@@ -64,7 +64,7 @@ def main(cfg):
         load_wav=True,
         transforms=None,
         ratio_th=cfg.model.ratio_th,
-        min_frames=cfg.model.min_frames,
+        min_frames=None if "min_frames" in cfg.model else cfg.model.min_frames,
         max_duration=cfg.model.max_duration,
     )
 
