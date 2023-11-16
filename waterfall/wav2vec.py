@@ -25,7 +25,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         super().__init__()
         self.output_dim = output_dim
         self.cfg = cfg
-        # self.save_hyperparameters()
+        self.save_hyperparameters(ignore=['lang'])
 
         bundle = getattr(torchaudio.pipelines, cfg.model["model"])
         wav2vec = bundle.get_model()
