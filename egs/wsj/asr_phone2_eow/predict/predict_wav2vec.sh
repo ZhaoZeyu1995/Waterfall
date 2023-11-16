@@ -10,7 +10,7 @@
 
 gpus=1
 batch_size=10
-decode_sets="test_dev93 test_eval92"
+decode_sets="test_dev93_5 test_eval92_5"
 lang_dir=data/lang_tg
 suffix=""
 

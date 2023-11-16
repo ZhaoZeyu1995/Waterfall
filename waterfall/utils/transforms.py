@@ -1,3 +1,6 @@
+import torch
+
+
 class MaskWaveform(object):
     def __init__(
         self,
@@ -7,10 +10,10 @@ class MaskWaveform(object):
 
     def __call__(self, sample):
         assert "wav" in sample.keys(), "wav is not in sample"
-        assert "uttid" in sample.keys(), "uttid is not in sample"
+        assert "name" in sample.keys(), "name is not in sample"
         wav = sample["wav"]
         wav_len = sample["wav_len"]
-        uttid = sample["uttid"]
+        uttid = sample["name"]
         mask_part = int(uttid.split("_")[-1])
         assert (
             mask_part < self.mask_factor
