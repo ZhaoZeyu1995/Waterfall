@@ -1,0 +1,19 @@
+idim: 83
+adim: 512
+aheads: 8
+dlayers: 6
+dropout-rate: 0.1
+dunits: 2048
+elayers: 12
+eunits: 2048
+transformer-attn-dropout-rate: 0.0
+transformer-input-layer: conv2d
+transformer-length-normalized-loss: false
+transformer-encoder-activation-type: swish
+transformer-encoder-pos-enc-layer-type: rel_pos
+transformer-encoder-selfattn-layer-type: rel_selfattn
+macaron-style: true
+use-cnn-module: true
+cnn-module-kernel: 31
+# For datapipe to filter out short utterances compared to the length of the target sequence
+ratio_th: 8.5
