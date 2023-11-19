@@ -5,7 +5,6 @@ import os
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from waterfall.utils.datapipe import Dataset, collate_fn_sorted, read_dict
-from waterfall.utils.transforms import MaskWaveform
 import argparse
 import numpy as np
 import logging
@@ -43,8 +42,7 @@ def predict(data_dir,
             f.write(os.path.join(os.getcwd(), model_dir))
 
     tic = time.time()
-    masker = MaskWaveform()
-    dataset = Dataset(data_dir, lang_dir, load_wav=True, transforms=masker)
+    dataset = Dataset(data_dir, lang_dir, load_wav=True)
     data_gen = DataLoader(dataset,
                           batch_size=batch_size,
                           collate_fn=collate_fn_sorted,

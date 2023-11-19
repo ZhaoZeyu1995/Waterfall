@@ -366,6 +366,10 @@ class Dataset(torch.utils.data.Dataset):
             self.data_dir, 'utt2dur'), mapping=float)
         self.utt2num_frames = read_dict(os.path.join(
             self.data_dir, 'utt2num_frames'), mapping=int)
+        if os.path.exists(os.path.join(self.data_dir, 'mask.json')):
+            logging.info("Loading mask.json. If this is not what you want, please remove it.")
+            with open(os.path.join(self.data_dir, 'mask.json')) as f:
+                self.mask = json.load(f)
 
         self.ctc_target = ctc_target
         self.load_wav = load_wav
@@ -461,6 +465,9 @@ class Dataset(torch.utils.data.Dataset):
             wav = torch.tensor(wav, dtype=torch.float32)
             if rate != RATE:
                 wav = torchaudio.functional.resample(wav, rate, RATE)
+            if hasattr(self, 'mask'):
+                for start, end, word in self.mask[uttid]:
+                    wav[int(start * RATE): int(end * RATE)] = 0
 
             wav = (wav - wav.mean()) / torch.sqrt(wav.var())  # Normalisation
             sample['wav'] = wav

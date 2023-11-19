@@ -20,11 +20,11 @@ def load_ctm(ctm_file):
             line = line.strip().split()
             utt = line[0]
             start = float(line[2])
-            dur = start + float(line[3])
+            end = start + float(line[3])
             word = line[4]
             if utt not in ctm:
                 ctm[utt] = []
-            ctm[utt].append((start, dur, word))
+            ctm[utt].append((start, end, word))
     return ctm
 
 
