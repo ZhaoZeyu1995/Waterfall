@@ -1,0 +1,3 @@
+train_set: data/train_960
+dev_set: data/dev_clean
+lang_dir: ???
