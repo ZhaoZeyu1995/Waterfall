@@ -66,6 +66,12 @@ if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     utils/combine_data.sh data/train_clean_460 data/train_clean_100 data/train_clean_360
     utils/combine_data.sh data/train_960 data/train_clean_100 data/train_clean_360 data/train_other_500
     utils/combine_data.sh data/dev data/dev_other/ data/dev_clean
+    utils/data/get_utt2num_frames.sh data/train_960
+    utils/data/get_utt2num_frames.sh data/dev
+    utils/data/get_utt2num_frames.sh data/train_clean_100
+    utils/data/get_utt2num_frames.sh data/train_clean_360
+    utils/data/get_utt2num_frames.sh data/train_other_500
+    utils/data/get_utt2num_frames.sh data/train_clean_460
 fi
 
 
