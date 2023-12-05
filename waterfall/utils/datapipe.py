@@ -462,7 +462,7 @@ class Dataset(torch.utils.data.Dataset):
             if rate != RATE:
                 wav = torchaudio.functional.resample(wav, rate, RATE)
 
-            wav = (wav - wav.mean()) / torch.sqrt(wav.var())  # Normalisation
+            wav = (wav - wav.mean()) / (torch.sqrt(wav.var()) + 1e-10)  # Normalisation
             sample['wav'] = wav
             sample['wav_len'] = len(wav)
 

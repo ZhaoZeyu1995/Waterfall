@@ -208,25 +208,8 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         return loss
 
     def forward(self, x, xlens):
-        if (
-            "spec_augment" in self.cfg.model.keys()
-            and self.cfg.model["spec_augment"]
-            and self.training
-        ):
-            x, xlens = self.wav2vec.feature_extractor(x, xlens)
-            x = x.permute(0, 2, 1)
-            x = self.time_masking(x)
-            x = self.freq_masking(x)
-            x = x.permute(0, 2, 1)
-            x = self.wav2vec.encoder(x, xlens)
-        else:
-            x, xlens = self.wav2vec(x, xlens)
-        if (
-            "extra_subsample" in self.cfg.model.keys()
-            and self.cfg.model["extra_subsample"] > 1
-        ):
-            x = x[:, :: int(self.cfg.model["extra_subsample"]), :]
-            xlens = xlens // int(self.cfg.model["extra_subsample"])
+
+        x, xlens = self.wav2vec(x, xlens)
         x = self.batch_norm(x.permute(0, 2, 1))
         x = x.permute(0, 2, 1)
         x = self.output_layer(x)
@@ -245,12 +228,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
             or self.cfg.training["accumulate_grad_batches"] == 1
         ):
             loss = self.compute_loss(batch, batch_idx)
-            # Check if loss is NaN or inf
-            if torch.isnan(loss) or torch.isinf(loss):
-                logging.warning(
-                    "NaN/Inf in loss, skipping batch. Please note that if this happens frequently, \
-                                it is likely that your model diverged or there is something wrong with the data pipeline."
-                )
+
             self.log(
                 "loss",
                 loss,
@@ -264,10 +242,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
             if self.cfg.model["finetune_layers"] > 0:
                 opt_wav2vec.zero_grad()
             self.manual_backward(loss)
-            if torch.isnan(loss) or torch.isinf(loss):
-                logging.info(
-                    "Trying to recover from NaN/Inf loss by clipping gradients"
-                )
+
             self.clip_gradients(
                 opt_output,
                 gradient_clip_val=0.5
@@ -279,10 +254,6 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
             )
             opt_output.step()
             if self.cfg.model["finetune_layers"] > 0:
-                if torch.isnan(loss) or torch.isinf(loss):
-                    logging.info(
-                        "Trying to recover from NaN/Inf loss by clipping gradients"
-                    )
                 self.clip_gradients(
                     opt_wav2vec,
                     gradient_clip_val=0.5
@@ -298,6 +269,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
                 self.compute_loss(batch, batch_idx)
                 / self.cfg.training["accumulate_grad_batches"]
             )
+
             self.acc_loss += loss.item()
 
             self.manual_backward(loss)
