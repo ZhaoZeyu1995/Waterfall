@@ -205,15 +205,6 @@ def main(cfg):
 
     trainer.fit(model, train_gen, dev_gen)
 
-    logger.log_metrics(
-        {
-            "best_model_path": os.path.join(
-                os.getcwd(), model_checkpoint.best_model_path
-            ),
-            "best_model_loss": model_checkpoint.best_model_score.item(),
-        }
-    )
-
     wandb.finish()
 
 
