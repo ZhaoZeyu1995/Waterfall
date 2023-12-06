@@ -34,17 +34,17 @@ def main(cfg):
         ctc_target = True
 
     if "sort" in cfg.training.keys():
-        if cfg.training.sort == "ascending":
-            logging.info("Sorting data by ascending order of duration")
-        elif cfg.training.sort == "descending":
-            logging.info("Sorting data by descending order of duration")
-    else:
-        logging.info("Not sorting data")
+        if cfg.training.sort in ["ascending", "descending"]:
+            logging.info("Sorting data by %s order of duration" % cfg.training.sort)
+        else:
+            raise ValueError("Unknown sort order %s" % cfg.training.sort)
 
     if cfg.training.loss == "builtin_ctc":
         lang = datapipe.Lang(to_absolute_path(cfg.data.lang_dir))
     elif cfg.training.loss == "k2":
         lang = datapipe.Lang(to_absolute_path(cfg.data.lang_dir), load_topo=True, load_lexicon=True)
+    else:
+        raise ValueError("Unknown loss %s" % cfg.training.loss)
 
     train_data = datapipe.Dataset(
         to_absolute_path(cfg.data.train_set),
@@ -97,6 +97,7 @@ def main(cfg):
         num_workers=cfg.training.num_workers,
         persistent_workers=True,
         collate_fn=datapipe.collate_fn_sorted,
+        pin_memory=True,
     )
 
 

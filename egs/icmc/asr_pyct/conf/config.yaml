@@ -1,0 +1,4 @@
+defaults:
+  - data: icmc
+  - model: wav2vec.xlsr300m
+  - training: xlsr300m

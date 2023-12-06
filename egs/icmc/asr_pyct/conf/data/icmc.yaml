@@ -1,0 +1,3 @@
+train_set: data/train_aec_iva_near
+dev_set: data/dev_aec_iva
+lang_dir: ???
