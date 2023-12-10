@@ -97,7 +97,6 @@ def main(cfg):
         num_workers=cfg.training.num_workers,
         persistent_workers=True,
         collate_fn=datapipe.collate_fn_sorted,
-        pin_memory=True,
     )
 
 
