@@ -10,8 +10,8 @@
 
 gpus=1
 batch_size=10
-decode_sets="test_dev93 test_eval92"
-lang_dir=data/lang_tg
+decode_sets="dev_near"
+lang_dir=data/lang_eval_tg
 suffix=""
 
 . utils/parse_options.sh
