@@ -12,7 +12,7 @@ strategy: ddp
 # optimiser
 #optimiser: adam
 transformer-warmup-steps: 2500
-final_lr: 1e-3
+final_lr: 5e-4
 
 #lr: 1e-4
 #factor: 0.1
@@ -29,5 +29,5 @@ patience: 20
 max_steps: -1
 max_epochs: 100
 
-spec_aug: false
+spec_aug: true
 grad_clip: 5

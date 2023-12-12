@@ -371,7 +371,7 @@ class ConformerModel(pl.LightningModule):
             else cfg.model["stochastic-depth-rate"],
         )
 
-        self.layer_norm = nn.LayerNorm(cfg.model.adim)
+        self.batch_norm = nn.BatchNorm1d(cfg.model.adim)
 
         self.output_layer = nn.Sequential(
             nn.Dropout(cfg.model["dropout-rate"]),
@@ -479,9 +479,8 @@ class ConformerModel(pl.LightningModule):
     def forward(self, x, xlens):
         src_mask = make_non_pad_mask(xlens).to(x.device).unsqueeze(-2)
         x, x_mask = self.encoder(x, src_mask)
-        # x = self.batch_norm(x.permute(0, 2, 1))
-        # x = x.permute(0, 2, 1)
-        x = self.layer_norm(x)
+        x = self.batch_norm(x.permute(0, 2, 1))
+        x = x.permute(0, 2, 1)
         x = self.output_layer(x)
         x = F.log_softmax(x, dim=-1)
         return x, torch.sum(x_mask, dim=-1, dtype=torch.long).unsqueeze(-1)
