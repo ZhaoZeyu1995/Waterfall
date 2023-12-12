@@ -51,17 +51,17 @@ def _normalize_regular_alphabet(labels: List[str]) -> List[str]:
         logger.info("Found '_' in vocabulary but not '', doing substitution.")
         normalized_labels[normalized_labels.index("_")] = ""
     # if "" not in normalized_labels:
-        # logger.info("CTC blank char '' not found, appending to end.")
-        # normalized_labels.append("")
+    # logger.info("CTC blank char '' not found, appending to end.")
+    # normalized_labels.append("")
     # substitute unk
     for n, label in enumerate(normalized_labels):
-        if label.endswith('_0'):
+        if label.endswith("_0"):
             logger.info(
                 "Found %s in vocabulary, interpreting as phone token, substituting with %s.",
                 label,
                 label[:-2],
             )
-            normalized_labels[n] = label[:-2] 
+            normalized_labels[n] = label[:-2]
     for n, label in enumerate(normalized_labels):
         if UNK_TOKEN_PTN.match(label):
             logger.info(
@@ -110,7 +110,9 @@ def _normalize_bpe_alphabet(labels: List[str]) -> List[str]:
     # substitute unk
     for n, label in enumerate(normalized_labels):
         if UNK_TOKEN_PTN.match(label):
-            logger.info("Found %s in vocabulary, substituting with %s.", label, UNK_BPE_TOKEN)
+            logger.info(
+                "Found %s in vocabulary, substituting with %s.", label, UNK_BPE_TOKEN
+            )
             normalized_labels[n] = UNK_BPE_TOKEN
     # additional checks
     if UNK_BPE_TOKEN not in normalized_labels:
@@ -125,7 +127,9 @@ def _verify_alphabet(labels: List[str], is_bpe: bool) -> None:
         raise ValueError("Alphabet contains duplicate entries, this is not allowed.")
     # check if space character is absent in bpe alphabet
     if is_bpe and any([" " in s for s in labels]):
-        raise ValueError("Space token ' ' found in vocabulary even though it looks like BPE.")
+        raise ValueError(
+            "Space token ' ' found in vocabulary even though it looks like BPE."
+        )
 
 
 class Alphabet:
@@ -166,7 +170,9 @@ class Alphabet:
         expected_keys = {"is_bpe", "labels"}
         found_keys = set(as_dict.keys())
         if set(found_keys) != expected_keys:
-            raise ValueError(f"unexpected keys found. Expected {expected_keys}, found {found_keys}")
+            raise ValueError(
+                f"unexpected keys found. Expected {expected_keys}, found {found_keys}"
+            )
         return cls(as_dict["labels"], as_dict["is_bpe"])
 
 

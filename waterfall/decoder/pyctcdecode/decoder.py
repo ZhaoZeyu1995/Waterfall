@@ -64,7 +64,10 @@ OutputBeam = Tuple[str, LMState, List[WordFrames], float, float]
 OutputBeamMPSafe = Tuple[str, List[WordFrames], float, float]
 
 # constants
-NULL_FRAMES: Frames = (-1, -1)  # placeholder that gets replaced with positive integer frame indices
+NULL_FRAMES: Frames = (
+    -1,
+    -1,
+)  # placeholder that gets replaced with positive integer frame indices
 EMPTY_START_BEAM: Beam = ("", "", "", None, [], NULL_FRAMES, 0.0)
 
 
@@ -136,7 +139,15 @@ def _merge_tokens(token_1: str, token_2: str) -> str:
 def _merge_beams(beams: List[Beam]) -> List[Beam]:
     """Merge beams with same prefix together."""
     beam_dict = {}
-    for text, next_word, word_part, last_char, text_frames, part_frames, logit_score in beams:
+    for (
+        text,
+        next_word,
+        word_part,
+        last_char,
+        text_frames,
+        part_frames,
+        logit_score,
+    ) in beams:
         new_text = _merge_tokens(text, next_word)
         hash_idx = (new_text, word_part, last_char)
         if hash_idx not in beam_dict:
@@ -176,7 +187,16 @@ def _prune_history(beams: List[LMBeam], lm_order: int) -> List[Beam]:
     seen_hashes = set()
     filtered_beams = []
     # for each beam after this, check if we need to add it
-    for (text, next_word, word_part, last_char, text_frames, part_frames, logit_score, _) in beams:
+    for (
+        text,
+        next_word,
+        word_part,
+        last_char,
+        text_frames,
+        part_frames,
+        logit_score,
+        _,
+    ) in beams:
         # hash based on history that can still affect lm scoring going forward
         hash_idx = (tuple(text.split()[-min_n_history:]), word_part, last_char)
         if hash_idx not in seen_hashes:
@@ -272,7 +292,8 @@ class BeamSearchDecoderCTC:
         if logits.shape[-1] != len(self._idx2vocab):
             raise ValueError(
                 "Input logits shape is %s, but vocabulary is size %s. "
-                "Need logits of shape: (time, vocabulary)" % (logits.shape, len(self._idx2vocab))
+                "Need logits of shape: (time, vocabulary)"
+                % (logits.shape, len(self._idx2vocab))
             )
 
     def _get_lm_beams(
@@ -289,7 +310,15 @@ class BeamSearchDecoderCTC:
         # if no language model available then return raw score + hotwords as lm score
         if language_model is None:
             new_beams = []
-            for text, next_word, word_part, last_char, frame_list, frames, logit_score in beams:
+            for (
+                text,
+                next_word,
+                word_part,
+                last_char,
+                frame_list,
+                frames,
+                logit_score,
+            ) in beams:
                 new_text = _merge_tokens(text, next_word)
                 # note that usually this gets scaled with alpha
                 lm_hw_score = (
@@ -313,12 +342,22 @@ class BeamSearchDecoderCTC:
             return new_beams
 
         new_beams = []
-        for text, next_word, word_part, last_char, frame_list, frames, logit_score in beams:
+        for (
+            text,
+            next_word,
+            word_part,
+            last_char,
+            frame_list,
+            frames,
+            logit_score,
+        ) in beams:
             # fast token merge
             new_text = _merge_tokens(text, next_word)
             if new_text not in cached_lm_scores:
                 _, prev_raw_lm_score, start_state = cached_lm_scores[text]
-                score, end_state = language_model.score(start_state, next_word, is_last_word=is_eos)
+                score, end_state = language_model.score(
+                    start_state, next_word, is_last_word=is_eos
+                )
                 raw_lm_score = prev_raw_lm_score + score
                 lm_hw_score = raw_lm_score + hotword_scorer.score(new_text)
                 cached_lm_scores[new_text] = (lm_hw_score, raw_lm_score, end_state)
@@ -328,13 +367,13 @@ class BeamSearchDecoderCTC:
                 if word_part not in cached_partial_token_scores:
                     # if prefix available in hotword trie use that, otherwise default to char trie
                     if word_part in hotword_scorer:
-                        cached_partial_token_scores[word_part] = hotword_scorer.score_partial_token(
+                        cached_partial_token_scores[
                             word_part
-                        )
+                        ] = hotword_scorer.score_partial_token(word_part)
                     else:
-                        cached_partial_token_scores[word_part] = language_model.score_partial_token(
+                        cached_partial_token_scores[
                             word_part
-                        )
+                        ] = language_model.score_partial_token(word_part)
                 lm_score += cached_partial_token_scores[word_part]
 
             new_beams.append(
@@ -400,7 +439,9 @@ class BeamSearchDecoderCTC:
                         else:
                             new_end_frame = frame_idx + 1
                         new_part_frames = (
-                            part_frames if char == "" else (part_frames[0], new_end_frame)
+                            part_frames
+                            if char == ""
+                            else (part_frames[0], new_end_frame)
                         )
                         new_beams.append(
                             (
@@ -424,7 +465,9 @@ class BeamSearchDecoderCTC:
                             clean_char = clean_char[:-1]
                             force_next_break = True
                         new_frame_list = (
-                            text_frames if word_part == "" else text_frames + [part_frames]
+                            text_frames
+                            if word_part == ""
+                            else text_frames + [part_frames]
                         )
                         new_beams.append(
                             (
@@ -440,7 +483,9 @@ class BeamSearchDecoderCTC:
                     # if not bpe and space char
                     elif not self._is_bpe and char == "<space>":
                         new_frame_list = (
-                            text_frames if word_part == "" else text_frames + [part_frames]
+                            text_frames
+                            if word_part == ""
+                            else text_frames + [part_frames]
                         )
                         new_beams.append(
                             (
@@ -482,7 +527,9 @@ class BeamSearchDecoderCTC:
             )
             # remove beam outliers
             max_score = max([b[-1] for b in scored_beams])
-            scored_beams = [b for b in scored_beams if b[-1] >= max_score + beam_prune_logp]
+            scored_beams = [
+                b for b in scored_beams if b[-1] >= max_score + beam_prune_logp
+            ]
             # beam pruning by taking highest N prefixes and then filtering down
             trimmed_beams = _sort_and_trim_beams(scored_beams, beam_width)
             # prune history and remove lm score from beams
@@ -496,7 +543,9 @@ class BeamSearchDecoderCTC:
         new_beams = []
         for text, _, word_part, _, frame_list, frames, logit_score in beams:
             new_token_times = frame_list if word_part == "" else frame_list + [frames]
-            new_beams.append((text, word_part, "", None, new_token_times, (-1, -1), logit_score))
+            new_beams.append(
+                (text, word_part, "", None, new_token_times, (-1, -1), logit_score)
+            )
         new_beams = _merge_beams(new_beams)
         scored_beams = self._get_lm_beams(
             new_beams,
@@ -651,7 +700,9 @@ class BeamSearchDecoderCTC:
             prune_history=prune_history,
             hotword_weight=hotword_weight,
         )
-        decoded_beams_list: List[List[OutputBeamMPSafe]] = valid_pool.map(p_decode, logits_list)
+        decoded_beams_list: List[List[OutputBeamMPSafe]] = valid_pool.map(
+            p_decode, logits_list
+        )
         return decoded_beams_list
 
     def decode(
@@ -762,7 +813,9 @@ class BeamSearchDecoderCTC:
         """Check contents of a directory for correct BeamSearchDecoderCTC files."""
         contents = os.listdir(filepath)
         # filter out hidden files
-        contents = [c for c in contents if not c.startswith(".") and not c.startswith("__")]
+        contents = [
+            c for c in contents if not c.startswith(".") and not c.startswith("__")
+        ]
         if BeamSearchDecoderCTC._ALPHABET_SERIALIZED_FILENAME not in contents:
             raise ValueError(
                 f"Could not find alphabet file "
@@ -774,7 +827,10 @@ class BeamSearchDecoderCTC:
         contents.remove(BeamSearchDecoderCTC._ALPHABET_SERIALIZED_FILENAME)
         lm_directory: Optional[str]
         if contents:
-            if BeamSearchDecoderCTC._LANGUAGE_MODEL_SERIALIZED_DIRECTORY not in contents:
+            if (
+                BeamSearchDecoderCTC._LANGUAGE_MODEL_SERIALIZED_DIRECTORY
+                not in contents
+            ):
                 raise ValueError(
                     f"Count not find language model directory. Looking for "
                     f"{BeamSearchDecoderCTC._LANGUAGE_MODEL_SERIALIZED_DIRECTORY}, found {contents}"
@@ -863,7 +919,9 @@ def build_ctcdecoder(
     """
     kenlm_model = None if kenlm_model_path is None else kenlm.Model(kenlm_model_path)
     if kenlm_model_path is not None and kenlm_model_path.endswith(".arpa"):
-        logger.info("Using arpa instead of binary LM file, decoder instantiation might be slow.")
+        logger.info(
+            "Using arpa instead of binary LM file, decoder instantiation might be slow."
+        )
     if unigrams is None and kenlm_model_path is not None:
         if kenlm_model_path.endswith(".arpa"):
             unigrams = load_unigram_set_from_arpa(kenlm_model_path)
@@ -887,6 +945,7 @@ def build_ctcdecoder(
     else:
         language_model = None
     return BeamSearchDecoderCTC(alphabet, language_model)
+
 
 class BeamSearchDecoder2StateBlk:
     # Note that we store the language model (large object) as a class variable.
@@ -916,9 +975,15 @@ class BeamSearchDecoder2StateBlk:
         self._alphabet = alphabet
         self._idx2vocab = {n: c for n, c in enumerate(self._alphabet.labels)}
         self._vocab2idx = {c: n for n, c in enumerate(self._alphabet.labels)}
-        self._blkidx = self._vocab2idx['']
-        self._firststateidx = [idx for idx, char in self._idx2vocab.items() if (not char.startswith('%%')) and char != ""]
-        self._secondstateidx = [idx for idx, char in self._idx2vocab.items() if char.startswith('%%')]
+        self._blkidx = self._vocab2idx[""]
+        self._firststateidx = [
+            idx
+            for idx, char in self._idx2vocab.items()
+            if (not char.startswith("%%")) and char != ""
+        ]
+        self._secondstateidx = [
+            idx for idx, char in self._idx2vocab.items() if char.startswith("%%")
+        ]
         self._is_bpe = alphabet.is_bpe
         self._model_key = os.urandom(16)
         BeamSearchDecoder2StateBlk.model_container[self._model_key] = language_model
@@ -969,7 +1034,8 @@ class BeamSearchDecoder2StateBlk:
         if logits.shape[-1] != len(self._idx2vocab):
             raise ValueError(
                 "Input logits shape is %s, but vocabulary is size %s. "
-                "Need logits of shape: (time, vocabulary)" % (logits.shape, len(self._idx2vocab))
+                "Need logits of shape: (time, vocabulary)"
+                % (logits.shape, len(self._idx2vocab))
             )
 
     def _get_lm_beams(
@@ -986,7 +1052,15 @@ class BeamSearchDecoder2StateBlk:
         # if no language model available then return raw score + hotwords as lm score
         if language_model is None:
             new_beams = []
-            for text, next_word, word_part, last_char, frame_list, frames, logit_score in beams:
+            for (
+                text,
+                next_word,
+                word_part,
+                last_char,
+                frame_list,
+                frames,
+                logit_score,
+            ) in beams:
                 new_text = _merge_tokens(text, next_word)
                 # note that usually this gets scaled with alpha
                 lm_hw_score = (
@@ -1010,12 +1084,22 @@ class BeamSearchDecoder2StateBlk:
             return new_beams
 
         new_beams = []
-        for text, next_word, word_part, last_char, frame_list, frames, logit_score in beams:
+        for (
+            text,
+            next_word,
+            word_part,
+            last_char,
+            frame_list,
+            frames,
+            logit_score,
+        ) in beams:
             # fast token merge
             new_text = _merge_tokens(text, next_word)
             if new_text not in cached_lm_scores:
                 _, prev_raw_lm_score, start_state = cached_lm_scores[text]
-                score, end_state = language_model.score(start_state, next_word, is_last_word=is_eos)
+                score, end_state = language_model.score(
+                    start_state, next_word, is_last_word=is_eos
+                )
                 raw_lm_score = prev_raw_lm_score + score
                 lm_hw_score = raw_lm_score + hotword_scorer.score(new_text)
                 cached_lm_scores[new_text] = (lm_hw_score, raw_lm_score, end_state)
@@ -1025,13 +1109,13 @@ class BeamSearchDecoder2StateBlk:
                 if word_part not in cached_partial_token_scores:
                     # if prefix available in hotword trie use that, otherwise default to char trie
                     if word_part in hotword_scorer:
-                        cached_partial_token_scores[word_part] = hotword_scorer.score_partial_token(
+                        cached_partial_token_scores[
                             word_part
-                        )
+                        ] = hotword_scorer.score_partial_token(word_part)
                     else:
-                        cached_partial_token_scores[word_part] = language_model.score_partial_token(
+                        cached_partial_token_scores[
                             word_part
-                        )
+                        ] = language_model.score_partial_token(word_part)
                 lm_score += cached_partial_token_scores[word_part]
 
             new_beams.append(
@@ -1091,12 +1175,19 @@ class BeamSearchDecoder2StateBlk:
                     logit_score,
                 ) in beams:
                     if last_char:
-                        if last_char.startswith('%%'):
-                            valid_char = self._firststateidx + [self._vocab2idx[last_char]] + [self._blkidx]
+                        if last_char.startswith("%%"):
+                            valid_char = (
+                                self._firststateidx
+                                + [self._vocab2idx[last_char]]
+                                + [self._blkidx]
+                            )
                         elif last_char == "":
                             valid_char = self._firststateidx + [self._blkidx]
                         else:
-                            valid_char = [self._vocab2idx[last_char], self._vocab2idx['%%'+last_char]]
+                            valid_char = [
+                                self._vocab2idx[last_char],
+                                self._vocab2idx["%%" + last_char],
+                            ]
                     else:
                         valid_char = [self._blkidx] + self._firststateidx
 
@@ -1110,7 +1201,9 @@ class BeamSearchDecoder2StateBlk:
                         else:
                             new_end_frame = frame_idx + 1
                         new_part_frames = (
-                            part_frames if char == "" else (part_frames[0], new_end_frame)
+                            part_frames
+                            if char == ""
+                            else (part_frames[0], new_end_frame)
                         )
                         new_beams.append(
                             (
@@ -1123,19 +1216,19 @@ class BeamSearchDecoder2StateBlk:
                                 logit_score + p_char,
                             )
                         )
-                    elif char.startswith('%%'):
+                    elif char.startswith("%%"):
                         new_part_frames = (part_frames[0], frame_idx + 1)
                         new_beams.append(
-                                (
-                                    text,
-                                    next_word,
-                                    word_part,
-                                    char,
-                                    text_frames,
-                                    new_part_frames,
-                                    logit_score + p_char,
-                                    )
-                                )
+                            (
+                                text,
+                                next_word,
+                                word_part,
+                                char,
+                                text_frames,
+                                new_part_frames,
+                                logit_score + p_char,
+                            )
+                        )
                     # if bpe and leading space char
                     elif self._is_bpe and (char[:1] == BPE_TOKEN or force_next_break):
                         force_next_break = False
@@ -1147,7 +1240,9 @@ class BeamSearchDecoder2StateBlk:
                             clean_char = clean_char[:-1]
                             force_next_break = True
                         new_frame_list = (
-                            text_frames if word_part == "" else text_frames + [part_frames]
+                            text_frames
+                            if word_part == ""
+                            else text_frames + [part_frames]
                         )
                         new_beams.append(
                             (
@@ -1163,7 +1258,9 @@ class BeamSearchDecoder2StateBlk:
                     # if not bpe and space char
                     elif not self._is_bpe and char == " ":
                         new_frame_list = (
-                            text_frames if word_part == "" else text_frames + [part_frames]
+                            text_frames
+                            if word_part == ""
+                            else text_frames + [part_frames]
                         )
                         new_beams.append(
                             (
@@ -1205,7 +1302,9 @@ class BeamSearchDecoder2StateBlk:
             )
             # remove beam outliers
             max_score = max([b[-1] for b in scored_beams])
-            scored_beams = [b for b in scored_beams if b[-1] >= max_score + beam_prune_logp]
+            scored_beams = [
+                b for b in scored_beams if b[-1] >= max_score + beam_prune_logp
+            ]
             # beam pruning by taking highest N prefixes and then filtering down
             trimmed_beams = _sort_and_trim_beams(scored_beams, beam_width)
             # prune history and remove lm score from beams
@@ -1219,7 +1318,9 @@ class BeamSearchDecoder2StateBlk:
         new_beams = []
         for text, _, word_part, _, frame_list, frames, logit_score in beams:
             new_token_times = frame_list if word_part == "" else frame_list + [frames]
-            new_beams.append((text, word_part, "", None, new_token_times, (-1, -1), logit_score))
+            new_beams.append(
+                (text, word_part, "", None, new_token_times, (-1, -1), logit_score)
+            )
         new_beams = _merge_beams(new_beams)
         scored_beams = self._get_lm_beams(
             new_beams,
@@ -1374,7 +1475,9 @@ class BeamSearchDecoder2StateBlk:
             prune_history=prune_history,
             hotword_weight=hotword_weight,
         )
-        decoded_beams_list: List[List[OutputBeamMPSafe]] = valid_pool.map(p_decode, logits_list)
+        decoded_beams_list: List[List[OutputBeamMPSafe]] = valid_pool.map(
+            p_decode, logits_list
+        )
         return decoded_beams_list
 
     def decode(
@@ -1485,7 +1588,9 @@ class BeamSearchDecoder2StateBlk:
         """Check contents of a directory for correct BeamSearchDecoder2StateBlk files."""
         contents = os.listdir(filepath)
         # filter out hidden files
-        contents = [c for c in contents if not c.startswith(".") and not c.startswith("__")]
+        contents = [
+            c for c in contents if not c.startswith(".") and not c.startswith("__")
+        ]
         if BeamSearchDecoder2StateBlk._ALPHABET_SERIALIZED_FILENAME not in contents:
             raise ValueError(
                 f"Could not find alphabet file "
@@ -1497,13 +1602,17 @@ class BeamSearchDecoder2StateBlk:
         contents.remove(BeamSearchDecoder2StateBlk._ALPHABET_SERIALIZED_FILENAME)
         lm_directory: Optional[str]
         if contents:
-            if BeamSearchDecoder2StateBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY not in contents:
+            if (
+                BeamSearchDecoder2StateBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY
+                not in contents
+            ):
                 raise ValueError(
                     f"Count not find language model directory. Looking for "
                     f"{BeamSearchDecoder2StateBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY}, found {contents}"
                 )
             lm_directory = os.path.join(
-                filepath, BeamSearchDecoder2StateBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY
+                filepath,
+                BeamSearchDecoder2StateBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY,
             )
         else:
             lm_directory = None
@@ -1560,6 +1669,7 @@ class BeamSearchDecoder2StateBlk:
 # Main entry point and convenience function to create BeamSearchDecoder2StateBlk object ########
 ##########################################################################################
 
+
 def build_2stateblkdecoder(
     labels: List[str],
     kenlm_model_path: Optional[str] = None,
@@ -1585,7 +1695,9 @@ def build_2stateblkdecoder(
     """
     kenlm_model = None if kenlm_model_path is None else kenlm.Model(kenlm_model_path)
     if kenlm_model_path is not None and kenlm_model_path.endswith(".arpa"):
-        logger.info("Using arpa instead of binary LM file, decoder instantiation might be slow.")
+        logger.info(
+            "Using arpa instead of binary LM file, decoder instantiation might be slow."
+        )
     if unigrams is None and kenlm_model_path is not None:
         if kenlm_model_path.endswith(".arpa"):
             unigrams = load_unigram_set_from_arpa(kenlm_model_path)
@@ -1639,9 +1751,15 @@ class BeamSearchDecoderMMICTCBlk:
         self._alphabet = alphabet
         self._idx2vocab = {n: c for n, c in enumerate(self._alphabet.labels)}
         self._vocab2idx = {c: n for n, c in enumerate(self._alphabet.labels)}
-        self._blkidx = self._vocab2idx['']
-        self._firststateidx = [idx for idx, char in self._idx2vocab.items() if (not char.startswith('%%')) and char != ""]
-        self._secondstateidx = [idx for idx, char in self._idx2vocab.items() if char.startswith('%%')]
+        self._blkidx = self._vocab2idx[""]
+        self._firststateidx = [
+            idx
+            for idx, char in self._idx2vocab.items()
+            if (not char.startswith("%%")) and char != ""
+        ]
+        self._secondstateidx = [
+            idx for idx, char in self._idx2vocab.items() if char.startswith("%%")
+        ]
         self._is_bpe = alphabet.is_bpe
         self._model_key = os.urandom(16)
         BeamSearchDecoderMMICTCBlk.model_container[self._model_key] = language_model
@@ -1692,7 +1810,8 @@ class BeamSearchDecoderMMICTCBlk:
         if logits.shape[-1] != len(self._idx2vocab):
             raise ValueError(
                 "Input logits shape is %s, but vocabulary is size %s. "
-                "Need logits of shape: (time, vocabulary)" % (logits.shape, len(self._idx2vocab))
+                "Need logits of shape: (time, vocabulary)"
+                % (logits.shape, len(self._idx2vocab))
             )
 
     def _get_lm_beams(
@@ -1709,7 +1828,15 @@ class BeamSearchDecoderMMICTCBlk:
         # if no language model available then return raw score + hotwords as lm score
         if language_model is None:
             new_beams = []
-            for text, next_word, word_part, last_char, frame_list, frames, logit_score in beams:
+            for (
+                text,
+                next_word,
+                word_part,
+                last_char,
+                frame_list,
+                frames,
+                logit_score,
+            ) in beams:
                 new_text = _merge_tokens(text, next_word)
                 # note that usually this gets scaled with alpha
                 lm_hw_score = (
@@ -1733,12 +1860,22 @@ class BeamSearchDecoderMMICTCBlk:
             return new_beams
 
         new_beams = []
-        for text, next_word, word_part, last_char, frame_list, frames, logit_score in beams:
+        for (
+            text,
+            next_word,
+            word_part,
+            last_char,
+            frame_list,
+            frames,
+            logit_score,
+        ) in beams:
             # fast token merge
             new_text = _merge_tokens(text, next_word)
             if new_text not in cached_lm_scores:
                 _, prev_raw_lm_score, start_state = cached_lm_scores[text]
-                score, end_state = language_model.score(start_state, next_word, is_last_word=is_eos)
+                score, end_state = language_model.score(
+                    start_state, next_word, is_last_word=is_eos
+                )
                 raw_lm_score = prev_raw_lm_score + score
                 lm_hw_score = raw_lm_score + hotword_scorer.score(new_text)
                 cached_lm_scores[new_text] = (lm_hw_score, raw_lm_score, end_state)
@@ -1748,13 +1885,13 @@ class BeamSearchDecoderMMICTCBlk:
                 if word_part not in cached_partial_token_scores:
                     # if prefix available in hotword trie use that, otherwise default to char trie
                     if word_part in hotword_scorer:
-                        cached_partial_token_scores[word_part] = hotword_scorer.score_partial_token(
+                        cached_partial_token_scores[
                             word_part
-                        )
+                        ] = hotword_scorer.score_partial_token(word_part)
                     else:
-                        cached_partial_token_scores[word_part] = language_model.score_partial_token(
+                        cached_partial_token_scores[
                             word_part
-                        )
+                        ] = language_model.score_partial_token(word_part)
                 lm_score += cached_partial_token_scores[word_part]
 
             new_beams.append(
@@ -1815,12 +1952,19 @@ class BeamSearchDecoderMMICTCBlk:
                     logit_score,
                 ) in beams:
                     if last_char:
-                        if last_char.startswith('%%'):
-                            valid_char = self._firststateidx + [self._vocab2idx[last_char]] + [self._blkidx]
+                        if last_char.startswith("%%"):
+                            valid_char = (
+                                self._firststateidx
+                                + [self._vocab2idx[last_char]]
+                                + [self._blkidx]
+                            )
                         elif last_char == "":
                             valid_char = self._firststateidx + [self._blkidx]
                         else:
-                            valid_char = self._firststateidx + [self._vocab2idx['%%'+last_char], self._blkidx]
+                            valid_char = self._firststateidx + [
+                                self._vocab2idx["%%" + last_char],
+                                self._blkidx,
+                            ]
                     else:
                         valid_char = [self._blkidx] + self._firststateidx
 
@@ -1834,7 +1978,9 @@ class BeamSearchDecoderMMICTCBlk:
                         else:
                             new_end_frame = frame_idx + 1
                         new_part_frames = (
-                            part_frames if char == "" else (part_frames[0], new_end_frame)
+                            part_frames
+                            if char == ""
+                            else (part_frames[0], new_end_frame)
                         )
                         new_beams.append(
                             (
@@ -1847,19 +1993,19 @@ class BeamSearchDecoderMMICTCBlk:
                                 logit_score + p_char,
                             )
                         )
-                    elif char.startswith('%%'):
+                    elif char.startswith("%%"):
                         new_part_frames = (part_frames[0], frame_idx + 1)
                         new_beams.append(
-                                (
-                                    text,
-                                    next_word,
-                                    word_part,
-                                    char,
-                                    text_frames,
-                                    new_part_frames,
-                                    logit_score + p_char,
-                                    )
-                                )
+                            (
+                                text,
+                                next_word,
+                                word_part,
+                                char,
+                                text_frames,
+                                new_part_frames,
+                                logit_score + p_char,
+                            )
+                        )
                     # if bpe and leading space char
                     elif self._is_bpe and (char[:1] == BPE_TOKEN or force_next_break):
                         force_next_break = False
@@ -1871,7 +2017,9 @@ class BeamSearchDecoderMMICTCBlk:
                             clean_char = clean_char[:-1]
                             force_next_break = True
                         new_frame_list = (
-                            text_frames if word_part == "" else text_frames + [part_frames]
+                            text_frames
+                            if word_part == ""
+                            else text_frames + [part_frames]
                         )
                         new_beams.append(
                             (
@@ -1887,7 +2035,9 @@ class BeamSearchDecoderMMICTCBlk:
                     # if not bpe and space char
                     elif not self._is_bpe and char == " ":
                         new_frame_list = (
-                            text_frames if word_part == "" else text_frames + [part_frames]
+                            text_frames
+                            if word_part == ""
+                            else text_frames + [part_frames]
                         )
                         new_beams.append(
                             (
@@ -1929,7 +2079,9 @@ class BeamSearchDecoderMMICTCBlk:
             )
             # remove beam outliers
             max_score = max([b[-1] for b in scored_beams])
-            scored_beams = [b for b in scored_beams if b[-1] >= max_score + beam_prune_logp]
+            scored_beams = [
+                b for b in scored_beams if b[-1] >= max_score + beam_prune_logp
+            ]
             # beam pruning by taking highest N prefixes and then filtering down
             trimmed_beams = _sort_and_trim_beams(scored_beams, beam_width)
             # prune history and remove lm score from beams
@@ -1943,7 +2095,9 @@ class BeamSearchDecoderMMICTCBlk:
         new_beams = []
         for text, _, word_part, _, frame_list, frames, logit_score in beams:
             new_token_times = frame_list if word_part == "" else frame_list + [frames]
-            new_beams.append((text, word_part, "", None, new_token_times, (-1, -1), logit_score))
+            new_beams.append(
+                (text, word_part, "", None, new_token_times, (-1, -1), logit_score)
+            )
         new_beams = _merge_beams(new_beams)
         scored_beams = self._get_lm_beams(
             new_beams,
@@ -2098,7 +2252,9 @@ class BeamSearchDecoderMMICTCBlk:
             prune_history=prune_history,
             hotword_weight=hotword_weight,
         )
-        decoded_beams_list: List[List[OutputBeamMPSafe]] = valid_pool.map(p_decode, logits_list)
+        decoded_beams_list: List[List[OutputBeamMPSafe]] = valid_pool.map(
+            p_decode, logits_list
+        )
         return decoded_beams_list
 
     def decode(
@@ -2209,7 +2365,9 @@ class BeamSearchDecoderMMICTCBlk:
         """Check contents of a directory for correct  BeamSearchDecoderMMICTCBlk files."""
         contents = os.listdir(filepath)
         # filter out hidden files
-        contents = [c for c in contents if not c.startswith(".") and not c.startswith("__")]
+        contents = [
+            c for c in contents if not c.startswith(".") and not c.startswith("__")
+        ]
         if BeamSearchDecoderMMICTCBlk._ALPHABET_SERIALIZED_FILENAME not in contents:
             raise ValueError(
                 f"Could not find alphabet file "
@@ -2218,16 +2376,20 @@ class BeamSearchDecoderMMICTCBlk:
         alphabet_filepath = os.path.join(
             filepath, BeamSearchDecoderMMICTCBlk._ALPHABET_SERIALIZED_FILENAME
         )
-        contents.remove( BeamSearchDecoderMMICTCBlk._ALPHABET_SERIALIZED_FILENAME)
+        contents.remove(BeamSearchDecoderMMICTCBlk._ALPHABET_SERIALIZED_FILENAME)
         lm_directory: Optional[str]
         if contents:
-            if BeamSearchDecoderMMICTCBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY not in contents:
+            if (
+                BeamSearchDecoderMMICTCBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY
+                not in contents
+            ):
                 raise ValueError(
                     f"Count not find language model directory. Looking for "
                     f"{ BeamSearchDecoderMMICTCBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY}, found {contents}"
                 )
             lm_directory = os.path.join(
-                filepath, BeamSearchDecoderMMICTCBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY
+                filepath,
+                BeamSearchDecoderMMICTCBlk._LANGUAGE_MODEL_SERIALIZED_DIRECTORY,
             )
         else:
             lm_directory = None
@@ -2284,6 +2446,7 @@ class BeamSearchDecoderMMICTCBlk:
 # Main entry point and convenience function to create BeamSearchDecoderMMICTCBlk object ########
 ##########################################################################################
 
+
 def build_mmictcblkdecoder(
     labels: List[str],
     kenlm_model_path: Optional[str] = None,
@@ -2309,7 +2472,9 @@ def build_mmictcblkdecoder(
     """
     kenlm_model = None if kenlm_model_path is None else kenlm.Model(kenlm_model_path)
     if kenlm_model_path is not None and kenlm_model_path.endswith(".arpa"):
-        logger.info("Using arpa instead of binary LM file, decoder instantiation might be slow.")
+        logger.info(
+            "Using arpa instead of binary LM file, decoder instantiation might be slow."
+        )
     if unigrams is None and kenlm_model_path is not None:
         if kenlm_model_path.endswith(".arpa"):
             unigrams = load_unigram_set_from_arpa(kenlm_model_path)

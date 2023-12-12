@@ -101,7 +101,9 @@ class TestDecoderHelpers(unittest.TestCase):
             ("Batman and", "", "Robi", "", [], (-1, -1), math.log(2 * math.exp(-1))),
             ("Batman &", "", "Robi", "", [], (-1, -1), -1),
         ]
-        self.assertListEqual(_approx_beams(merged_beams), _approx_beams(expected_merged_beams))
+        self.assertListEqual(
+            _approx_beams(merged_beams), _approx_beams(expected_merged_beams)
+        )
 
     def test_prune_history(self):
         beams = [
@@ -118,7 +120,9 @@ class TestDecoderHelpers(unittest.TestCase):
             ("D Gandalf sells", "", "yeast", "", [], (-1, -1), -1),
             ("E Gandalf owns", "", "yeast", "", [], (-1, -1), -1),
         ]
-        self.assertListEqual(_approx_beams(pruned_beams), _approx_beams(expected_pruned_beams))
+        self.assertListEqual(
+            _approx_beams(pruned_beams), _approx_beams(expected_pruned_beams)
+        )
 
 
 CUR_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -244,7 +248,9 @@ class TestDecoder(unittest.TestCase):
 
         # add restricted unigrams but unk weight 0
         unigrams = ["bunny"]
-        language_model = LanguageModel(TEST_KENLM_MODEL, unigrams, alpha=1.0, unk_score_offset=0.0)
+        language_model = LanguageModel(
+            TEST_KENLM_MODEL, unigrams, alpha=1.0, unk_score_offset=0.0
+        )
         decoder = BeamSearchDecoderCTC(alphabet, language_model)
         text = decoder.decode(TEST_LOGITS)
         self.assertEqual(text, "bugs bunny")
@@ -397,7 +403,8 @@ class TestDecoder(unittest.TestCase):
             [
                 BUGS_PROBS,
                 SPACE_PROBS,
-                np.vstack([BUGS_PROBS, BLANK_PROBS, BLANK_PROBS]) * 0.51 + BUNNY_PROBS * 0.49,
+                np.vstack([BUGS_PROBS, BLANK_PROBS, BLANK_PROBS]) * 0.51
+                + BUNNY_PROBS * 0.49,
             ]
         )
 
@@ -414,12 +421,19 @@ class TestDecoder(unittest.TestCase):
         self.assertEqual(text, "bugs bunny")
 
         # when splitting the LM can only see unigrams
-        text = decoder.decode(bunny_bunny_probs[:4]) + " " + decoder.decode(bunny_bunny_probs[4:])
+        text = (
+            decoder.decode(bunny_bunny_probs[:4])
+            + " "
+            + decoder.decode(bunny_bunny_probs[4:])
+        )
         self.assertEqual(text, "bugs bugs")
 
         # if we keep state from the first unigram then the second can be scored correctly
         text, lm_state, _, _, _ = decoder.decode_beams(bunny_bunny_probs[:4])[0]
-        text += " " + decoder.decode_beams(bunny_bunny_probs[4:], lm_start_state=lm_state)[0][0]
+        text += (
+            " "
+            + decoder.decode_beams(bunny_bunny_probs[4:], lm_start_state=lm_state)[0][0]
+        )
         self.assertEqual(text, "bugs bunny")
 
     def test_hotwords(self):
@@ -431,7 +445,9 @@ class TestDecoder(unittest.TestCase):
         text = decoder.decode(TEST_LOGITS, hotwords=["bunny"], hotword_weight=20)
         self.assertEqual(text, "bunny bunny")
 
-        text = decoder.decode(TEST_LOGITS, hotwords=["bugs", "bunny"], hotword_weight=20)
+        text = decoder.decode(
+            TEST_LOGITS, hotwords=["bugs", "bunny"], hotword_weight=20
+        )
         self.assertEqual(text, "bugs bunny")
 
         text = decoder.decode(TEST_LOGITS, hotwords=["bugs bunny"], hotword_weight=20)
@@ -538,7 +554,9 @@ class TestDecoder(unittest.TestCase):
         self.assertEqual(len(beams[0][0].split()), len(beams[0][2]))
 
         # test with fake BPE vocab, spoof space with with ▁▁
-        libri_labels_bpe = [UNK_BPE_TOKEN, BPE_TOKEN] + ["##" + c for c in LIBRI_LABELS[1:]]
+        libri_labels_bpe = [UNK_BPE_TOKEN, BPE_TOKEN] + [
+            "##" + c for c in LIBRI_LABELS[1:]
+        ]
         zero_row = np.array([[-100.0] * LIBRI_LOGITS.shape[0]]).T
         libri_logits_bpe = np.hstack([zero_row, LIBRI_LOGITS])
         decoder = build_ctcdecoder(libri_labels_bpe)
@@ -563,7 +581,9 @@ class TestDecoder(unittest.TestCase):
         st.builds(
             _random_matrix,
             st.integers(min_value=0, max_value=20),
-            st.integers(min_value=len(LIBRI_LABELS) + 1, max_value=len(LIBRI_LABELS) + 1),
+            st.integers(
+                min_value=len(LIBRI_LABELS) + 1, max_value=len(LIBRI_LABELS) + 1
+            ),
         )
     )
     def test_invalid_logit_inputs(self, logits: np.ndarray):
@@ -589,7 +609,11 @@ class TestDecoder(unittest.TestCase):
 class TestSerialization(TempfileTestCase):
     def _count_num_language_models(self):
         return sum(
-            [1 for model in BeamSearchDecoderCTC.model_container.values() if model is not None]
+            [
+                1
+                for model in BeamSearchDecoderCTC.model_container.values()
+                if model is not None
+            ]
         )
 
     def test_parse_directory(self):
@@ -608,7 +632,9 @@ class TestSerialization(TempfileTestCase):
             for fn in filenames:
                 with open(os.path.join(self.temp_dir, fn), "w") as fi:
                     fi.write("meaningless data")
-            BeamSearchDecoderCTC.parse_directory_contents(self.temp_dir)  # should not error out
+            BeamSearchDecoderCTC.parse_directory_contents(
+                self.temp_dir
+            )  # should not error out
 
         for filenames in bad_filenames:
             self.clear_dir()
@@ -685,9 +711,7 @@ class TestSerialization(TempfileTestCase):
         dummy_hub_name_with_separator = dummy_hub_name.replace("/", REPO_ID_SEPARATOR)
         hash_value = "123456aoeusnth"
         if new_hub_structure:
-            dummy_cached_subdir = (
-                f"models{REPO_ID_SEPARATOR}{dummy_hub_name_with_separator}/snapshots/{hash_value}"
-            )
+            dummy_cached_subdir = f"models{REPO_ID_SEPARATOR}{dummy_hub_name_with_separator}/snapshots/{hash_value}"
         else:
             dummy_cached_subdir = f"{dummy_hub_name_with_separator}.main.{hash_value}"
         dummy_cached_dir = os.path.join(self.temp_dir, dummy_cached_subdir)

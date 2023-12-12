@@ -2,19 +2,12 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-import numpy as np
 import logging
-import torchaudio
 from waterfall import graph
 import k2
 from waterfall.utils.datapipe import Lang
 
-# from espnet.nets.pytorch_backend.conformer.encoder import Encoder
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask
-
-import logging
-
-import torch
 
 from espnet.nets.pytorch_backend.conformer.convolution import ConvolutionModule
 from espnet.nets.pytorch_backend.conformer.encoder_layer import EncoderLayer
@@ -40,7 +33,12 @@ from espnet.nets.pytorch_backend.transformer.positionwise_feed_forward import (
     PositionwiseFeedForward,
 )
 from espnet.nets.pytorch_backend.transformer.repeat import repeat
-from espnet.nets.pytorch_backend.transformer.subsampling import Conv2dSubsampling, Conv2dSubsampling2, Conv2dSubsampling6, Conv2dSubsampling8
+from espnet.nets.pytorch_backend.transformer.subsampling import (
+    Conv2dSubsampling,
+    Conv2dSubsampling2,
+    Conv2dSubsampling6,
+    Conv2dSubsampling8,
+)
 
 
 class Encoder(torch.nn.Module):
@@ -169,8 +167,7 @@ class Encoder(torch.nn.Module):
             self.conv_subsampling_factor = 4
         elif input_layer == "embed":
             self.embed = torch.nn.Sequential(
-                torch.nn.Embedding(idim, attention_dim,
-                                   padding_idx=padding_idx),
+                torch.nn.Embedding(idim, attention_dim, padding_idx=padding_idx),
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
         elif isinstance(input_layer, torch.nn.Module):
@@ -204,8 +201,7 @@ class Encoder(torch.nn.Module):
                 attention_dropout_rate,
             )
         elif selfattention_layer_type == "rel_selfattn":
-            logging.info(
-                "encoder self-attention layer type = relative self-attention")
+            logging.info("encoder self-attention layer type = relative self-attention")
             assert pos_enc_layer_type == "rel_pos"
             encoder_selfattn_layer = RelPositionMultiHeadedAttention
             encoder_selfattn_layer_args = (
@@ -215,8 +211,7 @@ class Encoder(torch.nn.Module):
                 zero_triu,
             )
         else:
-            raise ValueError("unknown encoder_attn_layer: " +
-                             selfattention_layer_type)
+            raise ValueError("unknown encoder_attn_layer: " + selfattention_layer_type)
 
         # feed-forward module definition
         if positionwise_layer_type == "linear":
@@ -256,10 +251,8 @@ class Encoder(torch.nn.Module):
                 attention_dim,
                 encoder_selfattn_layer(*encoder_selfattn_layer_args),
                 positionwise_layer(*positionwise_layer_args),
-                positionwise_layer(
-                    *positionwise_layer_args) if macaron_style else None,
-                convolution_layer(
-                    *convolution_layer_args) if use_cnn_module else None,
+                positionwise_layer(*positionwise_layer_args) if macaron_style else None,
+                convolution_layer(*convolution_layer_args) if use_cnn_module else None,
                 dropout_rate,
                 normalize_before,
                 concat_after,
@@ -289,7 +282,16 @@ class Encoder(torch.nn.Module):
             torch.Tensor: Mask tensor (#batch, time).
 
         """
-        if isinstance(self.embed, (Conv2dSubsampling, Conv2dSubsampling2, Conv2dSubsampling6, Conv2dSubsampling8, VGG2L)):
+        if isinstance(
+            self.embed,
+            (
+                Conv2dSubsampling,
+                Conv2dSubsampling2,
+                Conv2dSubsampling6,
+                Conv2dSubsampling8,
+                VGG2L,
+            ),
+        ):
             xs, masks = self.embed(xs, masks)
         else:
             xs = self.embed(xs)
@@ -320,12 +322,10 @@ class Encoder(torch.nn.Module):
 
                         if isinstance(xs, tuple):
                             x, pos_emb = xs[0], xs[1]
-                            x = x + \
-                                self.conditioning_layer(intermediate_result)
+                            x = x + self.conditioning_layer(intermediate_result)
                             xs = (x, pos_emb)
                         else:
-                            xs = xs + \
-                                self.conditioning_layer(intermediate_result)
+                            xs = xs + self.conditioning_layer(intermediate_result)
 
         if isinstance(xs, tuple):
             xs = xs[0]
@@ -338,170 +338,8 @@ class Encoder(torch.nn.Module):
         return xs, masks
 
 
-class ConformerModelNoWarmup(pl.LightningModule):
-    def __init__(self,
-                 input_dim,
-                 output_dim,
-                 lang_dir=None,
-                 cfg=None):
-
-        super().__init__()
-        self.output_dim = output_dim
-        self.cfg = cfg
-        self.save_hyperparameters()
-
-        self.encoder = Encoder(
-            idim=input_dim,
-            attention_dim=cfg.model.adim,
-            attention_heads=cfg.model.aheads,
-            linear_units=cfg.model.eunits,
-            num_blocks=cfg.model.elayers,
-            input_layer=cfg.model.transformer_input_layer,
-            dropout_rate=cfg.model.dropout_rate,
-            positional_dropout_rate=cfg.model.dropout_rate,
-            attention_dropout_rate=cfg.model.transformer_attn_dropout_rate,
-            pos_enc_layer_type=cfg.model.transformer_pos_enc_layer_type,
-            selfattention_layer_type=cfg.model.transformer_encoder_selfattn_layer_type,
-            activation_type=cfg.model.transformer_encoder_activation_type,
-            macaron_style=cfg.model.macaron_style,
-            use_cnn_module=cfg.model.use_cnn_module,
-            zero_triu=False if 'zero-triu' not in cfg.model.keys(
-            ) else cfg.model.zero_triu,
-            cnn_module_kernel=cfg.model.cnn_module_kernel,
-            stochastic_depth_rate=0.0 if 'stochastic-depth-rate' not in cfg.model.keys() else cfg.model.stochastic_depth_rate)
-
-        self.batch_norm = nn.BatchNorm1d(cfg.model.adim)
-
-        self.output_layer = nn.Linear(cfg.model.adim, self.output_dim)
-
-        if self.cfg.training.loss == 'builtin_ctc':
-            self.lang = Lang(lang_dir)
-        elif self.cfg.training.loss == 'k2':
-            self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
-
-    def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
-
-        if self.cfg.training.loss in ['k2']:
-            feats = batch['feats']
-            lengths = batch['feats_lens']
-            word_ids = batch['word_ids']
-            target_lengths = batch['target_lengths']
-
-            batch_num = int(feats .shape[0])
-            log_probs, xlens = self(feats , lengths)
-
-            supervision_segments = torch.tensor([[i, 0, xlens[i]] for i in range(batch_num)],
-                                                device='cpu',
-                                                dtype=torch.int32)
-
-            dense_fsa_vec = k2.DenseFsaVec(log_probs=log_probs,
-                                           supervision_segments=supervision_segments)
-
-            decoding_graph = self.lang.compile_training_graph(
-                word_ids, log_probs.device)
-
-            assert decoding_graph.requires_grad == False
-
-            numerator = graph.graphloss(decoding_graph=decoding_graph,
-                                        dense_fsa_vec=dense_fsa_vec,
-                                        target_lengths=target_lengths,
-                                        reduction='mean')
-
-            if 'no_den' in self.cfg.training.keys() and self.cfg.training.no_den:
-                loss = numerator
-            elif 'no_den_grad' in self.cfg.training.keys() and self.cfg.training.no_den_grad:
-                with torch.no_grad():
-                    den_decoding_graph = k2.create_fsa_vec(
-                        [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
-
-                    assert den_decoding_graph.requires_grad == False
-
-                    denominator = graph.graphloss(decoding_graph=den_decoding_graph,
-                                                  dense_fsa_vec=dense_fsa_vec,
-                                                  target_lengths=target_lengths,
-                                                  reduction='mean')
-                loss = numerator - denominator
-            else:
-                den_decoding_graph = k2.create_fsa_vec(
-                    [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
-
-                assert den_decoding_graph.requires_grad == False
-
-                denominator = graph.graphloss(decoding_graph=den_decoding_graph,
-                                              dense_fsa_vec=dense_fsa_vec,
-                                              target_lengths=target_lengths,
-                                              reduction='mean')
-                loss = numerator - denominator
-        elif self.cfg.training.loss == 'builtin_ctc':
-            feats = batch['feats']
-            lengths = batch['feats_lens']
-            target_lengths = batch['target_lengths']
-            targets_ctc = batch['targets_ctc']
-            log_probs, xlens = self(feats , lengths)
-            loss = F.ctc_loss(log_probs.permute(1, 0, 2), targets_ctc, xlens,
-                              target_lengths, reduction='mean')
-
-        else:
-            raise Exception('Unrecognised Loss Function %s' %
-                            (self.cfg['training']['loss']))
-
-        return loss
-
-    def forward(self, x, xlens):
-        src_mask = make_non_pad_mask(xlens.tolist()).to(
-            x.device).unsqueeze(-2)
-        x, x_mask = self.encoder(x, src_mask)
-        x = self.batch_norm(x.permute(0, 2, 1))
-        x = x.permute(0, 2, 1)
-        x = self.output_layer(x)
-        x = F.log_softmax(x, dim=-1)
-        return x, torch.sum(x_mask, dim=-1, dtype=torch.long).unsqueeze(-1)
-
-    def training_step(self, batch, batch_idx, optimizer_idx=None):
-        loss = self.compute_loss(batch, batch_idx, optimizer_idx)
-        self.log('loss', loss, on_epoch=True, sync_dist=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        loss = self.compute_loss(batch, batch_idx)
-        self.log('valid_loss', loss, prog_bar=True,
-                 on_epoch=True, sync_dist=True)
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        loss = self.compute_loss(batch, batch_idx)
-        self.log('test_loss', loss, on_epoch=True, sync_dist=True)
-        return loss
-
-    def predict_step(self, batch, batch_idx):
-        feats = batch['feats']
-        feats_lens = batch['feats_lens']
-        targets = batch['targets']
-        names = batch['names']
-        spks = batch['spks']
-        texts = batch['texts']
-        log_probs, xlens = self(feats, feats_lens)
-        return log_probs, xlens, names, spks, texts
-
-    def configure_optimizers(self):
-        optimiser = torch.optim.Adam(
-            self.parameters(), lr=self.cfg['training']['lr'])
-        return [optimiser], [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser,
-                                                                                      'min',
-                                                                                      patience=self.cfg['training']['lr_patience'],
-                                                                                      verbose=True,
-                                                                                      factor=self.cfg['training']['factor'],
-                                                                                      min_lr=self.cfg['training']['min_lr']),
-                              'monitor': 'valid_loss'}]
-
-
 class ConformerModel(pl.LightningModule):
-    def __init__(self,
-                 input_dim,
-                 output_dim,
-                 lang_dir=None,
-                 cfg=None):
-
+    def __init__(self, input_dim, output_dim, lang_dir=None, cfg=None):
         super().__init__()
         self.output_dim = output_dim
         self.cfg = cfg
@@ -513,154 +351,253 @@ class ConformerModel(pl.LightningModule):
             attention_heads=cfg.model.aheads,
             linear_units=cfg.model.eunits,
             num_blocks=cfg.model.elayers,
-            input_layer=cfg.model['transformer-input-layer'],
-            dropout_rate=cfg.model['dropout-rate'],
-            positional_dropout_rate=cfg.model['dropout-rate'],
-            attention_dropout_rate=cfg.model['transformer-attn-dropout-rate'],
-            pos_enc_layer_type=cfg.model['transformer-encoder-pos-enc-layer-type'],
-            selfattention_layer_type=cfg.model['transformer-encoder-selfattn-layer-type'],
-            activation_type=cfg.model['transformer-encoder-activation-type'],
-            macaron_style=cfg.model['macaron-style'],
-            use_cnn_module=cfg.model['use-cnn-module'],
-            zero_triu=False if 'zero-triu' not in cfg.model.keys(
-            ) else cfg.model.zero_triu,
-            cnn_module_kernel=cfg.model['cnn-module-kernel'],
-            stochastic_depth_rate=0.0 if 'stochastic-depth-rate' not in cfg.model.keys() else cfg.model['stochastic-depth-rate'])
-
-        self.batch_norm = nn.BatchNorm1d(cfg.model.adim)
-
-        self.output_layer = nn.Linear(cfg.model.adim, self.output_dim)
-
-        if self.cfg.training.loss == 'builtin_ctc':
-            self.lang = Lang(lang_dir)
-        elif self.cfg.training.loss == 'k2':
-            self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
-
-    def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
-
-        if self.cfg.training.loss in ['k2']:
-            feats = batch['feats']
-            lengths = batch['feats_lens']
-            word_ids = batch['word_ids']
-            target_lengths = batch['target_lengths']
-
-            batch_num = int(feats .shape[0])
-            log_probs, xlens = self(feats , lengths)
-
-            supervision_segments = torch.tensor([[i, 0, xlens[i]] for i in range(batch_num)],
-                                                device='cpu',
-                                                dtype=torch.int32)
-
-            dense_fsa_vec = k2.DenseFsaVec(log_probs=log_probs,
-                                           supervision_segments=supervision_segments)
-
-            decoding_graph = self.lang.compile_training_graph(
-                word_ids, log_probs.device)
-
-            assert decoding_graph.requires_grad == False
-
-            numerator = graph.graphloss(decoding_graph=decoding_graph,
-                                        dense_fsa_vec=dense_fsa_vec,
-                                        target_lengths=target_lengths,
-                                        reduction='mean')
-
-            if 'no_den' in self.cfg.training.keys() and self.cfg.training.no_den:
-                loss = numerator
-            elif 'no_den_grad' in self.cfg.training.keys() and self.cfg.training.no_den_grad:
-                with torch.no_grad():
-                    den_decoding_graph = k2.create_fsa_vec(
-                        [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
-
-                    assert den_decoding_graph.requires_grad == False
-
-                    denominator = graph.graphloss(decoding_graph=den_decoding_graph,
-                                                  dense_fsa_vec=dense_fsa_vec,
-                                                  target_lengths=target_lengths,
-                                                  reduction='mean')
-                loss = numerator - denominator
-            else:
-                den_decoding_graph = k2.create_fsa_vec(
-                    [self.lang.topo.to(log_probs.device) for _ in range(batch_num)])
-
-                assert den_decoding_graph.requires_grad == False
-
-                denominator = graph.graphloss(decoding_graph=den_decoding_graph,
-                                              dense_fsa_vec=dense_fsa_vec,
-                                              target_lengths=target_lengths,
-                                              reduction='mean')
-                loss = numerator - denominator
-        elif self.cfg.training.loss == 'builtin_ctc':
-            feats = batch['feats']
-            lengths = batch['feats_lens']
-            target_lengths = batch['target_lengths']
-            targets_ctc = batch['targets_ctc']
-            log_probs, xlens = self(feats , lengths)
-            loss = F.ctc_loss(log_probs.permute(1, 0, 2), targets_ctc, xlens,
-                              target_lengths, reduction='mean')
-
-        else:
-            raise Exception('Unrecognised Loss Function %s' %
-                            (self.cfg['training']['loss']))
-
-        return loss
-
-    def forward(self, x, xlens):
-        src_mask = make_non_pad_mask(xlens.tolist()).to(
-            x.device).unsqueeze(-2)
-        x, x_mask = self.encoder(x, src_mask)
-        x = self.batch_norm(x.permute(0, 2, 1))
-        x = x.permute(0, 2, 1)
-        x = self.output_layer(x)
-        x = F.log_softmax(x, dim=-1)
-        return x, torch.sum(x_mask, dim=-1, dtype=torch.long).unsqueeze(-1)
-
-    def training_step(self, batch, batch_idx, optimizer_idx=None):
-        loss = self.compute_loss(batch, batch_idx, optimizer_idx)
-        self.log('loss', loss, on_epoch=True, sync_dist=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        loss = self.compute_loss(batch, batch_idx)
-        self.log('valid_loss', loss, prog_bar=True,
-                 on_epoch=True, sync_dist=True)
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        loss = self.compute_loss(batch, batch_idx)
-        self.log('test_loss', loss, on_epoch=True, sync_dist=True)
-        return loss
-
-    def predict_step(self, batch, batch_idx):
-        feats = batch['feats']
-        feats_lens = batch['feats_lens']
-        targets = batch['targets']
-        names = batch['names']
-        spks = batch['spks']
-        texts = batch['texts']
-        log_probs, xlens = self(feats, feats_lens)
-        return log_probs, xlens, names, spks, texts
-
-    def configure_optimizers(self):
-        optimiser = torch.optim.Adam(
-            self.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
-        return optimiser
-
-    def optimizer_step(self,
-                       epoch,
-                       batch_idx,
-                       optimizer,
-                       optimizer_idx,
-                       optimizer_closure,
-                       on_tpu=False,
-                       using_native_amp=False,
-                       using_lbfgs=False):
-        optimizer.step(closure=optimizer_closure)
-        lr = (
-            self.cfg.training['final_lr']
-            * min((self.trainer.global_step+1) ** (-0.5) * self.cfg.training['transformer-warmup-steps'] ** (0.5),
-                  (self.trainer.global_step+1) * self.cfg.training['transformer-warmup-steps'] ** (-1))
+            input_layer=cfg.model["transformer-input-layer"],
+            dropout_rate=cfg.model["dropout-rate"],
+            positional_dropout_rate=cfg.model["dropout-rate"],
+            attention_dropout_rate=cfg.model["transformer-attn-dropout-rate"],
+            pos_enc_layer_type=cfg.model["transformer-encoder-pos-enc-layer-type"],
+            selfattention_layer_type=cfg.model[
+                "transformer-encoder-selfattn-layer-type"
+            ],
+            activation_type=cfg.model["transformer-encoder-activation-type"],
+            macaron_style=cfg.model["macaron-style"],
+            use_cnn_module=cfg.model["use-cnn-module"],
+            zero_triu=False
+            if "zero-triu" not in cfg.model.keys()
+            else cfg.model.zero_triu,
+            cnn_module_kernel=cfg.model["cnn-module-kernel"],
+            stochastic_depth_rate=0.0
+            if "stochastic-depth-rate" not in cfg.model.keys()
+            else cfg.model["stochastic-depth-rate"],
         )
 
-        for pg in optimizer.param_groups:
-            pg["lr"] = lr
+        self.layer_norm = nn.LayerNorm(cfg.model.adim)
 
+        self.output_layer = nn.Sequential(
+            nn.Dropout(cfg.model["dropout-rate"]),
+            nn.Linear(self.cfg.model.adim, self.output_dim),
+        )
+
+        if self.cfg.training.loss == "builtin_ctc":
+            self.lang = Lang(lang_dir)
+        elif self.cfg.training.loss == "k2":
+            self.lang = Lang(lang_dir, load_topo=True, load_lexicon=True)
+        self.automatic_optimization = False
+        self.num_steps = 0
+        if "accumulate_grad_batches" in self.cfg.training:
+            if self.cfg.training["accumulate_grad_batches"] > 1:
+                self.acc_loss = 0
+
+    def compute_loss(self, batch, batch_idx=None, optimizer_idx=None):
+        if self.cfg.training.loss in ["k2"]:
+            feats = batch["feats"]
+            lengths = batch["feats_lens"]
+            word_ids = batch["word_ids"]
+            target_lengths = batch["target_lengths"]
+
+            batch_num = int(feats.shape[0])
+            log_probs, xlens = self(feats, lengths)
+
+            supervision_segments = torch.tensor(
+                [[i, 0, xlens[i]] for i in range(batch_num)],
+                device="cpu",
+                dtype=torch.int32,
+            )
+
+            dense_fsa_vec = k2.DenseFsaVec(
+                log_probs=log_probs, supervision_segments=supervision_segments
+            )
+
+            decoding_graph = self.lang.compile_training_graph(
+                word_ids, log_probs.device
+            )
+
+            assert decoding_graph.requires_grad == False
+
+            numerator = graph.graphloss(
+                decoding_graph=decoding_graph,
+                dense_fsa_vec=dense_fsa_vec,
+                target_lengths=target_lengths,
+                reduction="mean",
+            )
+
+            if "no_den" in self.cfg.training.keys() and self.cfg.training.no_den:
+                loss = numerator
+            elif (
+                "no_den_grad" in self.cfg.training.keys()
+                and self.cfg.training.no_den_grad
+            ):
+                with torch.no_grad():
+                    den_decoding_graph = k2.create_fsa_vec(
+                        [self.lang.topo.to(log_probs.device) for _ in range(batch_num)]
+                    )
+
+                    assert den_decoding_graph.requires_grad == False
+
+                    denominator = graph.graphloss(
+                        decoding_graph=den_decoding_graph,
+                        dense_fsa_vec=dense_fsa_vec,
+                        target_lengths=target_lengths,
+                        reduction="mean",
+                    )
+                loss = numerator - denominator
+            else:
+                den_decoding_graph = k2.create_fsa_vec(
+                    [self.lang.topo.to(log_probs.device) for _ in range(batch_num)]
+                )
+
+                assert den_decoding_graph.requires_grad == False
+
+                denominator = graph.graphloss(
+                    decoding_graph=den_decoding_graph,
+                    dense_fsa_vec=dense_fsa_vec,
+                    target_lengths=target_lengths,
+                    reduction="mean",
+                )
+                loss = numerator - denominator
+        elif self.cfg.training.loss == "builtin_ctc":
+            feats = batch["feats"]
+            lengths = batch["feats_lens"]
+            target_lengths = batch["target_lengths"]
+            targets_ctc = batch["targets_ctc"]
+            log_probs, xlens = self(feats, lengths)
+            loss = F.ctc_loss(
+                log_probs.permute(1, 0, 2),
+                targets_ctc,
+                xlens,
+                target_lengths,
+                reduction="mean",
+            )
+
+        else:
+            raise Exception(
+                "Unrecognised Loss Function %s" % (self.cfg["training"]["loss"])
+            )
+
+        return loss
+
+    def forward(self, x, xlens):
+        src_mask = make_non_pad_mask(xlens).to(x.device).unsqueeze(-2)
+        x, x_mask = self.encoder(x, src_mask)
+        # x = self.batch_norm(x.permute(0, 2, 1))
+        # x = x.permute(0, 2, 1)
+        x = self.layer_norm(x)
+        x = self.output_layer(x)
+        x = F.log_softmax(x, dim=-1)
+        return x, torch.sum(x_mask, dim=-1, dtype=torch.long).unsqueeze(-1)
+
+    def training_step(self, batch, batch_idx, optimizer_idx=None):
+        if (
+            "accumulate_grad_batches" not in self.cfg.training.keys()
+            or self.cfg.training["accumulate_grad_batches"] == 1
+        ):
+            loss = self.compute_loss(batch, batch_idx)
+
+            self.log(
+                "loss",
+                loss,
+                on_epoch=True,
+                sync_dist=True,
+                prog_bar=True,
+            )
+
+            self.opt.zero_grad()
+            self.manual_backward(loss)
+
+            self.clip_gradients(
+                self.opt,
+                gradient_clip_val=0.5
+                if "grad_clip" not in self.cfg.training.keys()
+                else self.cfg.training["grad_clip"],
+                gradient_clip_algorithm="norm"
+                if "grad_clip_algorithm" not in self.cfg.training.keys()
+                else self.cfg.training["grad_clip_algorithm"],
+            )
+            self.adjust_lr()
+            self.opt.step()
+
+        else:
+            loss = (
+                self.compute_loss(batch, batch_idx)
+                / self.cfg.training["accumulate_grad_batches"]
+            )
+
+            self.acc_loss += loss.item()
+
+            self.manual_backward(loss)
+
+            if (batch_idx + 1) % self.cfg.training[
+                "accumulate_grad_batches"
+            ] == 0 or self.trainer.is_last_batch:
+                self.log(
+                    "loss",
+                    self.acc_loss,
+                    on_epoch=True,
+                    sync_dist=True,
+                    prog_bar=True,
+                )
+                self.clip_gradients(
+                    self.opt,
+                    gradient_clip_val=0.5
+                    if "grad_clip" not in self.cfg.training.keys()
+                    else self.cfg.training["grad_clip"],
+                    gradient_clip_algorithm="norm"
+                    if "grad_clip_algorithm" not in self.cfg.training.keys()
+                    else self.cfg.training["grad_clip_algorithm"],
+                )
+                self.adjust_lr()
+                self.opt.step()
+
+                self.opt.zero_grad()
+                self.acc_loss = 0
+
+    def validation_step(self, batch, batch_idx):
+        loss = self.compute_loss(batch, batch_idx)
+        self.log(
+            "valid_loss",
+            loss,
+            on_epoch=True,
+            sync_dist=True,
+            prog_bar=True,
+        )
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        loss = self.compute_loss(batch, batch_idx)
+        self.log(
+            "test_loss",
+            loss,
+            on_epoch=True,
+            sync_dist=True,
+            prog_bar=True,
+        )
+        return loss
+
+    def predict_step(self, batch, batch_idx):
+        feats = batch["feats"]
+        feats_lens = batch["feats_lens"]
+        names = batch["names"]
+        spks = batch["spks"]
+        texts = batch["texts"]
+        log_probs, xlens = self(feats, feats_lens)
+        return log_probs, xlens, names, spks, texts
+
+    def configure_optimizers(self):
+        optimiser = torch.optim.Adam(
+            self.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9, weight_decay=1e-6
+        )
+        self.opt = optimiser
+        return optimiser
+
+    def adjust_lr(self):
+        lr = self.cfg.training["final_lr"] * min(
+            (self.num_steps + 1) ** (-0.5)
+            * self.cfg.training["transformer-warmup-steps"] ** (0.5),
+            (self.num_steps + 1)
+            * self.cfg.training["transformer-warmup-steps"] ** (-1),
+        )
+
+        self.num_steps += 1
+
+        for pg in self.opt.param_groups:
+            pg["lr"] = lr

@@ -1,4 +1,5 @@
 defaults:
   - data: icmc
   - model: wav2vec.xlsr300m
+  - specaug: convention
   - training: xlsr300m

@@ -42,7 +42,9 @@ def main(cfg):
     if cfg.training.loss == "builtin_ctc":
         lang = datapipe.Lang(to_absolute_path(cfg.data.lang_dir))
     elif cfg.training.loss == "k2":
-        lang = datapipe.Lang(to_absolute_path(cfg.data.lang_dir), load_topo=True, load_lexicon=True)
+        lang = datapipe.Lang(
+            to_absolute_path(cfg.data.lang_dir), load_topo=True, load_lexicon=True
+        )
     else:
         raise ValueError("Unknown loss %s" % cfg.training.loss)
 
@@ -73,14 +75,20 @@ def main(cfg):
         num_kept = int(cfg.training.split_dev * len(dev_data))
         num_discarded = len(dev_data) - num_kept
         dev_data = random_split(dev_data, [num_kept, num_discarded])[0]
-        logging.info("Kept %d examples, discarded %d examples" % (num_kept, num_discarded))
+        logging.info(
+            "Kept %d examples, discarded %d examples" % (num_kept, num_discarded)
+        )
 
     logging.info("Training set size: %d" % len(train_data))
     shuffle = True if cfg.training.sort is None else False
     if shuffle:
         logging.info("Shuffling training set")
     else:
-        logging.info("Not shuffling training set as it is already sorted {} by duration".format(cfg.training.sort))
+        logging.info(
+            "Not shuffling training set as it is already sorted {} by duration".format(
+                cfg.training.sort
+            )
+        )
     train_gen = DataLoader(
         train_data,
         batch_size=batch_size,
@@ -98,7 +106,6 @@ def main(cfg):
         persistent_workers=True,
         collate_fn=datapipe.collate_fn_sorted,
     )
-
 
     if cfg.training.nowarmup:
         logging.info("Training without warmup")
@@ -157,9 +164,15 @@ def main(cfg):
             and not cfg.training.load_weights_only
         ):
             trainer = pl.Trainer(
-                accelerator="gpu" if "accelerator" not in cfg.training.keys() else cfg.training.accelerator,
-                strategy="auto" if "strategy" not in cfg.training.keys() else cfg.training.strategy,
-                precision=32 if "precision" not in cfg.training.keys() else cfg.training.precision,
+                accelerator="gpu"
+                if "accelerator" not in cfg.training.keys()
+                else cfg.training.accelerator,
+                strategy="auto"
+                if "strategy" not in cfg.training.keys()
+                else cfg.training.strategy,
+                precision=32
+                if "precision" not in cfg.training.keys()
+                else cfg.training.precision,
                 devices=cfg.training.gpus,
                 deterministic=False,
                 resume_from_checkpoint=cfg.training.checkpoint,
@@ -167,7 +180,9 @@ def main(cfg):
                 logger=logger,
                 callbacks=callbacks,
                 sync_batchnorm=True,
-                val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,
+                val_check_interval=1.0
+                if "val_check_interval" not in cfg.training.keys()
+                else cfg.training.val_check_interval,
             )
         else:
             checkpoint = torch.load(
@@ -177,29 +192,45 @@ def main(cfg):
             del checkpoint
             torch.cuda.empty_cache()
             trainer = pl.Trainer(
-                accelerator="gpu" if "accelerator" not in cfg.training.keys() else cfg.training.accelerator,
-                strategy="auto" if "strategy" not in cfg.training.keys() else cfg.training.strategy,
-                precision=32 if "precision" not in cfg.training.keys() else cfg.training.precision,
+                accelerator="gpu"
+                if "accelerator" not in cfg.training.keys()
+                else cfg.training.accelerator,
+                strategy="auto"
+                if "strategy" not in cfg.training.keys()
+                else cfg.training.strategy,
+                precision=32
+                if "precision" not in cfg.training.keys()
+                else cfg.training.precision,
                 devices=cfg.training.gpus,
                 deterministic=False,
                 max_epochs=cfg.training.max_epochs,
                 logger=logger,
                 callbacks=callbacks,
                 sync_batchnorm=True,
-                val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,
+                val_check_interval=1.0
+                if "val_check_interval" not in cfg.training.keys()
+                else cfg.training.val_check_interval,
             )
     else:
         trainer = pl.Trainer(
-            accelerator="gpu" if "accelerator" not in cfg.training.keys() else cfg.training.accelerator,
-            strategy="auto" if "strategy" not in cfg.training.keys() else cfg.training.strategy,
-            precision=32 if "precision" not in cfg.training.keys() else cfg.training.precision,
+            accelerator="gpu"
+            if "accelerator" not in cfg.training.keys()
+            else cfg.training.accelerator,
+            strategy="auto"
+            if "strategy" not in cfg.training.keys()
+            else cfg.training.strategy,
+            precision=32
+            if "precision" not in cfg.training.keys()
+            else cfg.training.precision,
             devices=cfg.training.gpus,
             deterministic=False,
             max_epochs=cfg.training.max_epochs,
             logger=logger,
             callbacks=callbacks,
             sync_batchnorm=True,
-            val_check_interval=1.0 if 'val_check_interval' not in cfg.training.keys() else cfg.training.val_check_interval,
+            val_check_interval=1.0
+            if "val_check_interval" not in cfg.training.keys()
+            else cfg.training.val_check_interval,
         )
 
     trainer.fit(model, train_gen, dev_gen)

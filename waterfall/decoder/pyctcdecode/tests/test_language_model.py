@@ -19,7 +19,9 @@ KENLM_BINARY_PATH = os.path.join(CUR_PATH, "sample_data", "bugs_bunny_kenlm.arpa
 class TestLanguageModel(unittest.TestCase):
     def test_match_ptn(self):
         hotwords = ["tyrion lannister", "hodor"]
-        match_ptn = HotwordScorer.build_scorer(hotwords)._match_ptn  # pylint: disable=W0212
+        match_ptn = HotwordScorer.build_scorer(
+            hotwords
+        )._match_ptn  # pylint: disable=W0212
 
         matched_tokens = match_ptn.findall("i work with hodor and friends")
         expected_tokens = ["hodor"]
@@ -42,14 +44,18 @@ class TestLanguageModel(unittest.TestCase):
 
         # punctuation compatibility
         hotwords = ["hodor,"]
-        match_ptn = HotwordScorer.build_scorer(hotwords)._match_ptn  # pylint: disable=W0212
+        match_ptn = HotwordScorer.build_scorer(
+            hotwords
+        )._match_ptn  # pylint: disable=W0212
         matched_tokens = match_ptn.findall("please match hodor, but not hodor")
         expected_tokens = ["hodor,"]
         self.assertListEqual(matched_tokens, expected_tokens)
 
     def test_trie(self):
         hotwords = ["tyrion lannister", "hodor"]
-        char_trie = HotwordScorer.build_scorer(hotwords)._char_trie  # pylint: disable=W0212
+        char_trie = HotwordScorer.build_scorer(
+            hotwords
+        )._char_trie  # pylint: disable=W0212
         has_token = char_trie.has_node("hod") > 0
         self.assertTrue(has_token)
         has_token = char_trie.has_node("dor") > 0
@@ -65,7 +71,9 @@ class TestLanguageModel(unittest.TestCase):
 
         # punctuation compatibility
         hotwords = ["U.S.A."]
-        char_trie = HotwordScorer.build_scorer(hotwords)._char_trie  # pylint: disable=W0212
+        char_trie = HotwordScorer.build_scorer(
+            hotwords
+        )._char_trie  # pylint: disable=W0212
         has_token = char_trie.has_node("U.S") > 0
         self.assertTrue(has_token)
 
@@ -99,7 +107,11 @@ class TestFuzzMultiLanguageModel(unittest.TestCase):
 
 
 class TestHotwordScorer(unittest.TestCase):
-    @given(match_ptn=st.just(re.compile("")), char_trie=st.builds(CharTrie), weight=st.floats())
+    @given(
+        match_ptn=st.just(re.compile("")),
+        char_trie=st.builds(CharTrie),
+        weight=st.floats(),
+    )
     def test_fuzz_HotwordScorer(self, match_ptn, char_trie, weight):
         HotwordScorer(match_ptn=match_ptn, char_trie=char_trie, weight=weight)
 
@@ -135,12 +147,23 @@ class TestLanguageModelSerialization(TempfileTestCase):
             ("unigrams.txt", "something.arpa", "attrs.json"),
             ("unigrams.txt", "something.bin", "attrs.json"),
             ("unigrams.txt", "something.binary", "attrs.json"),
-            ("unigrams.txt", "something.binary", "attrs.json", ".meaningless", "__pycache__"),
+            (
+                "unigrams.txt",
+                "something.binary",
+                "attrs.json",
+                ".meaningless",
+                "__pycache__",
+            ),
         ]
 
         bad_filenames = [
             ("something.arpa", "attrs.json"),  # missing unigrams
-            ("unigrams.txt", "something.bin", "attrs.json", "extra-file.ext"),  # extra file
+            (
+                "unigrams.txt",
+                "something.bin",
+                "attrs.json",
+                "extra-file.ext",
+            ),  # extra file
             ("unigrams.txt", "something.binary", "attributes.json"),  # wrong filename
         ]
 
@@ -149,7 +172,9 @@ class TestLanguageModelSerialization(TempfileTestCase):
             for fn in filenames:
                 with open(os.path.join(self.temp_dir, fn), "w") as fi:
                     fi.write("meaningless data")
-            LanguageModel.parse_directory_contents(self.temp_dir)  # should not error out
+            LanguageModel.parse_directory_contents(
+                self.temp_dir
+            )  # should not error out
 
         for filenames in bad_filenames:
             self.clear_dir()
@@ -174,7 +199,9 @@ class TestLanguageModelSerialization(TempfileTestCase):
         self.assertEqual(len(dir_contents), 3)
 
         new_lm = LanguageModel.load_from_dir(self.temp_dir)
-        self.assertEqual(lm._unigram_set, new_lm._unigram_set)  # pylint: disable=protected-access
+        self.assertEqual(
+            lm._unigram_set, new_lm._unigram_set
+        )  # pylint: disable=protected-access
         self.assertEqual(lm.alpha, new_lm.alpha)
         self.assertEqual(lm.beta, new_lm.beta)
 
@@ -189,12 +216,16 @@ class TestLanguageModelSerialization(TempfileTestCase):
         dir_contents = lm.parse_directory_contents(self.temp_dir)
         self.assertEqual(len(dir_contents), 3)
         new_lm = LanguageModel.load_from_dir(self.temp_dir)
-        self.assertEqual(lm._unigram_set, new_lm._unigram_set)  # pylint: disable=protected-access
+        self.assertEqual(
+            lm._unigram_set, new_lm._unigram_set
+        )  # pylint: disable=protected-access
         self.assertEqual(lm.alpha, new_lm.alpha)
         self.assertEqual(lm.beta, new_lm.beta)
 
         # do it again, make sure we can load the same thing twice without corrupting the item
         new_lm2 = LanguageModel.load_from_dir(self.temp_dir)
-        self.assertEqual(lm._unigram_set, new_lm2._unigram_set)  # pylint: disable=protected-access
+        self.assertEqual(
+            lm._unigram_set, new_lm2._unigram_set
+        )  # pylint: disable=protected-access
         self.assertEqual(lm.alpha, new_lm2.alpha)
         self.assertEqual(lm.beta, new_lm2.beta)

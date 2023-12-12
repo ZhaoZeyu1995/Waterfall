@@ -1,0 +1,33 @@
+loss: k2
+gpus: ???
+name: ???
+output_dir: ${hydra:run.dir}
+# batch
+batch_size: 4
+accumulate_grad_batches: 3
+# data pipeline
+num_workers: 2
+# multi-gpu training
+strategy: ddp
+# optimiser
+#optimiser: adam
+transformer-warmup-steps: 2500
+final_lr: 1e-3
+
+#lr: 1e-4
+#factor: 0.1
+#lr_patience: 2
+#min_lr: 1e-7
+
+save_top_k: 4
+# random seed
+seed: 777
+# early_stopping
+early_stopping: false
+patience: 20
+# for debugging
+max_steps: -1
+max_epochs: 100
+
+spec_aug: false
+grad_clip: 5

@@ -1,5 +1,5 @@
 defaults:
   - data: yesno
   - model: rnnp
-  - training: convention
+  - training: rnnp
   - specaug: convention

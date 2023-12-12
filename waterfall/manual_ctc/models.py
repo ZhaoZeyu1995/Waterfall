@@ -9,10 +9,7 @@ from waterfall.manual_ctc.ctc import ctc_loss
 
 
 class Wav2VecFineTuning(pl.LightningModule):
-    def __init__(self,
-                 output_size,
-                 cfg=None):
-
+    def __init__(self, output_size, cfg=None):
         super().__init__()
         self.output_size = output_size
         self.cfg = cfg
@@ -38,81 +35,98 @@ class Wav2VecFineTuning(pl.LightningModule):
         return x, xlens
 
     def training_step(self, batch, batch_idx):
-        wavs = batch['wavs']
-        lengths = batch['lengths']
-        trans = batch['trans']
-        trans_lengths = batch['trans_lengths']
-        transform = batch['transform']
+        wavs = batch["wavs"]
+        lengths = batch["lengths"]
+        trans = batch["trans"]
+        trans_lengths = batch["trans_lengths"]
+        transform = batch["transform"]
         batch_num = int(wavs.shape[0])
         log_probs, xlens = self(wavs, lengths)
 
-        loss = ctc_loss(log_probs,
-                        input_lengths=xlens,
-                        trans=trans,
-                        trans_lengths=trans_lengths,
-                        transform=transform,
-                        reduction='sum')
+        loss = ctc_loss(
+            log_probs,
+            input_lengths=xlens,
+            trans=trans,
+            trans_lengths=trans_lengths,
+            transform=transform,
+            reduction="sum",
+        )
 
-        self.log('loss', loss/batch_num, on_step=True,
-                 on_epoch=True, sync_dist=True)
-        return loss/batch_num
+        self.log("loss", loss / batch_num, on_step=True, on_epoch=True, sync_dist=True)
+        return loss / batch_num
 
     def validation_step(self, batch, batch_idx):
-        wavs = batch['wavs']
-        lengths = batch['lengths']
-        trans = batch['trans']
-        trans_lengths = batch['trans_lengths']
-        transform = batch['transform']
+        wavs = batch["wavs"]
+        lengths = batch["lengths"]
+        trans = batch["trans"]
+        trans_lengths = batch["trans_lengths"]
+        transform = batch["transform"]
         batch_num = int(wavs.shape[0])
         log_probs, xlens = self(wavs, lengths)
 
-        loss = ctc_loss(log_probs,
-                        input_lengths=xlens,
-                        trans=trans,
-                        trans_lengths=trans_lengths,
-                        transform=transform,
-                        reduction='sum')
+        loss = ctc_loss(
+            log_probs,
+            input_lengths=xlens,
+            trans=trans,
+            trans_lengths=trans_lengths,
+            transform=transform,
+            reduction="sum",
+        )
 
-        self.log('valid_loss', loss/batch_num, prog_bar=True,
-                 on_step=True, on_epoch=True, sync_dist=True)
-        return loss/batch_num
+        self.log(
+            "valid_loss",
+            loss / batch_num,
+            prog_bar=True,
+            on_step=True,
+            on_epoch=True,
+            sync_dist=True,
+        )
+        return loss / batch_num
 
     def test_step(self, batch, batch_idx):
-        wavs = batch['wavs']
-        lengths = batch['lengths']
-        trans = batch['trans']
-        trans_lengths = batch['trans_lengths']
-        transform = batch['transform']
+        wavs = batch["wavs"]
+        lengths = batch["lengths"]
+        trans = batch["trans"]
+        trans_lengths = batch["trans_lengths"]
+        transform = batch["transform"]
         batch_num = int(wavs.shape[0])
         log_probs, xlens = self(wavs, lengths)
 
-        loss = ctc_loss(log_probs,
-                        input_lengths=xlens,
-                        trans=trans,
-                        trans_lengths=trans_lengths,
-                        transform=transform,
-                        reduction='sum')
+        loss = ctc_loss(
+            log_probs,
+            input_lengths=xlens,
+            trans=trans,
+            trans_lengths=trans_lengths,
+            transform=transform,
+            reduction="sum",
+        )
 
-        self.log('test_loss', loss/batch_num, on_step=True,
-                 on_epoch=True, sync_dist=True)
-        return loss/batch_num
+        self.log(
+            "test_loss", loss / batch_num, on_step=True, on_epoch=True, sync_dist=True
+        )
+        return loss / batch_num
 
     def predict_step(self, batch, batch_idx):
-        wavs = batch['wavs']
-        lengths = batch['lengths']
-        targets = batch['targets']
-        names = batch['names']
-        spks = batch['spks']
-        texts = batch['texts']
+        wavs = batch["wavs"]
+        lengths = batch["lengths"]
+        targets = batch["targets"]
+        names = batch["names"]
+        spks = batch["spks"]
+        texts = batch["texts"]
         log_probs, xlens = self(wavs, lengths)
         return log_probs, xlens, names, spks, texts
 
     def configure_optimizers(self):
         optimiser = torch.optim.Adam(self.parameters())
-        return {'optimizer': optimiser,
-                'lr_scheduler': {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', patience=2, verbose=True),
-                                 'monitor': 'valid_loss'}
-                }
+        return {
+            "optimizer": optimiser,
+            "lr_scheduler": {
+                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimiser, "min", patience=2, verbose=True
+                ),
+                "monitor": "valid_loss",
+            },
+        }
 
 
 def get_model(num_tokens):

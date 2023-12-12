@@ -7,7 +7,18 @@ import logging
 import os
 import re
 import shutil
-from typing import Any, Collection, Dict, Iterable, List, Optional, Pattern, Set, Tuple, cast
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Pattern,
+    Set,
+    Tuple,
+    cast,
+)
 
 import numpy as np  # type: ignore
 from pygtrie import CharTrie  # type: ignore
@@ -50,11 +61,15 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
                 if len(parts) == 3:
                     unigrams.add(parts[1])
     if len(unigrams) == 0:
-        raise ValueError("No unigrams found in arpa file. Something is wrong with the file.")
+        raise ValueError(
+            "No unigrams found in arpa file. Something is wrong with the file."
+        )
     return unigrams
 
 
-def _prepare_unigram_set(unigrams: Collection[str], kenlm_model: "kenlm.Model") -> Set[str]:
+def _prepare_unigram_set(
+    unigrams: Collection[str], kenlm_model: "kenlm.Model"
+) -> Set[str]:
     """Filter unigrams down to vocabulary that exists in kenlm_model."""
     if len(unigrams) < 1000:
         logger.warning(
@@ -121,7 +136,9 @@ class HotwordScorer:
 
     @classmethod
     def build_scorer(
-        cls, hotwords: Optional[Iterable[str]] = None, weight: float = DEFAULT_HOTWORD_WEIGHT
+        cls,
+        hotwords: Optional[Iterable[str]] = None,
+        weight: float = DEFAULT_HOTWORD_WEIGHT,
     ) -> "HotwordScorer":
         """Use hotword list to create regex pattern and character trie for scoring."""
         # make sure we get an iterable
@@ -221,7 +238,9 @@ class LanguageModel(AbstractLanguageModel):
         """
         self._kenlm_model = kenlm_model
         if unigrams is None:
-            logger.warning("No known unigrams provided, decoding results might be a lot worse.")
+            logger.warning(
+                "No known unigrams provided, decoding results might be a lot worse."
+            )
             unigram_set = set()
             char_trie = None
         else:
@@ -336,10 +355,13 @@ class LanguageModel(AbstractLanguageModel):
         """Check the contents of a directory for the correct files."""
         contents = os.listdir(filepath)
         # filter out hidden files
-        contents = [c for c in contents if not c.startswith(".") and not c.startswith("__")]
+        contents = [
+            c for c in contents if not c.startswith(".") and not c.startswith("__")
+        ]
         if len(contents) != 3:
             raise ValueError(
-                f"Found wrong number of files in directory. " f"Expected 3 files, found {contents}"
+                f"Found wrong number of files in directory. "
+                f"Expected 3 files, found {contents}"
             )
         if LanguageModel._ATTRS_SERIALIZED_FILENAME not in contents:
             raise ValueError(f"did not find attributes file in files: {contents}")
@@ -356,8 +378,12 @@ class LanguageModel(AbstractLanguageModel):
                 f"Explected kenlm file to end in `.arpa` or `.bin(ary)`. Found {kenlm_file}"
             )
         return {
-            "json_attrs": os.path.join(filepath, LanguageModel._ATTRS_SERIALIZED_FILENAME),
-            "unigrams": os.path.join(filepath, LanguageModel._UNIGRAMS_SERIALIZED_FILENAME),
+            "json_attrs": os.path.join(
+                filepath, LanguageModel._ATTRS_SERIALIZED_FILENAME
+            ),
+            "unigrams": os.path.join(
+                filepath, LanguageModel._UNIGRAMS_SERIALIZED_FILENAME
+            ),
             "kenlm": os.path.join(filepath, kenlm_file),
         }
 
@@ -388,7 +414,9 @@ class MultiLanguageModel(AbstractLanguageModel):
             language_models: list of language models
         """
         if len(language_models) < 2:
-            raise ValueError("This class is meant to contain at least 2 language models.")
+            raise ValueError(
+                "This class is meant to contain at least 2 language models."
+            )
         self._language_models = language_models
 
     @property
@@ -403,7 +431,9 @@ class MultiLanguageModel(AbstractLanguageModel):
     def score_partial_token(self, partial_token: str) -> float:
         """Get partial token score."""
         return float(
-            np.mean([lm.score_partial_token(partial_token) for lm in self._language_models])
+            np.mean(
+                [lm.score_partial_token(partial_token) for lm in self._language_models]
+            )
         )
 
     def score(
@@ -413,7 +443,9 @@ class MultiLanguageModel(AbstractLanguageModel):
         score = 0.0
         end_state = []
         for lm_prev_state, lm in zip(prev_state, self._language_models):
-            lm_score, lm_end_state = lm.score(lm_prev_state, word, is_last_word=is_last_word)
+            lm_score, lm_end_state = lm.score(
+                lm_prev_state, word, is_last_word=is_last_word
+            )
             score += lm_score
             end_state.append(lm_end_state)
         score = score / len(self._language_models)

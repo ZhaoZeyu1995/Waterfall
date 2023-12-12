@@ -15,6 +15,10 @@ DEFAULT_MAX_TOKEN_NUM = 30
 DEFAULT_SCORE_LM_BOUNDARY = True
 
 # other constants for decoding
-AVG_TOKEN_LEN = 6  # average number of characters expected per token (used for UNK scoring)
+AVG_TOKEN_LEN = (
+    6  # average number of characters expected per token (used for UNK scoring)
+)
 MIN_TOKEN_CLIP_P = 1e-15  # clipping to avoid underflow in case of malformed logit input
-LOG_BASE_CHANGE_FACTOR = 1.0 / math.log10(math.e)  # kenlm returns base10 but we like natural
+LOG_BASE_CHANGE_FACTOR = 1.0 / math.log10(
+    math.e
+)  # kenlm returns base10 but we like natural

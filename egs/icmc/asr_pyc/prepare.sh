@@ -25,6 +25,19 @@ set -e
 set -u
 set -o pipefail
 
+fbankdir=fbank
+if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
+    echo "stage 2: feature extraction and dump"
+    for x in train_near train_aec_iva train_aec_iva_near dev_near dev_aec_iva; do
+        steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
+            data/${x} exp/make_fbank/${x} ${fbankdir}
+        steps/compute_cmvn_stats.sh data/${x}
+        utils/fix_data_dir.sh data/${x}
+        dump_utt2spk.sh --nj ${nj} data/${x} exp/dump_utt2spk/${x} data/${x}/dump/delta${do_delta}
+    done
+
+fi
+
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     echo "stage 2: Get Duration"
     utils/data/get_utt2num_frames.sh data/train_aec_iva_near

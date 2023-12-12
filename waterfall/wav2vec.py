@@ -45,7 +45,9 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
                     self.cfg.model.wav2vec2_save_path
                 )
             )
-            wav2vec = bundle.get_model(dl_kwargs={"model_dir": self.cfg.model.wav2vec2_save_path})
+            wav2vec = bundle.get_model(
+                dl_kwargs={"model_dir": self.cfg.model.wav2vec2_save_path}
+            )
         else:
             wav2vec = bundle.get_model()
         # Deal with different torchaudio versions
@@ -208,7 +210,6 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         return loss
 
     def forward(self, x, xlens):
-
         x, xlens = self.wav2vec(x, xlens)
         x = self.batch_norm(x.permute(0, 2, 1))
         x = x.permute(0, 2, 1)
