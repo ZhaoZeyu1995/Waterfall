@@ -2,4 +2,5 @@ model: WAV2VEC2_XLSR_300M
 encoder_output_size: 1024
 finetune_layers: 12
 ratio_th: 4
-max_duration: 35
+max_duration: 25
+min_frames: 25
