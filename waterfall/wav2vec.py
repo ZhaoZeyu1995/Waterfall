@@ -10,6 +10,22 @@ from waterfall import graph
 import k2
 from waterfall.utils.datapipe import Lang
 import time
+import torchaudio.transforms as T
+
+class SpecAugment(torch.nn.Module):
+    def __init__(self, freq_mask_param, time_mask_param, num_freq_masks=1, num_time_masks=1):
+        super(SpecAugment, self).__init__()
+        self.freq_mask = T.FrequencyMasking(freq_mask_param)
+        self.time_mask = T.TimeMasking(time_mask_param, 0.5)
+        self.num_freq_masks = num_freq_masks
+        self.num_time_masks = num_time_masks
+
+    def forward(self, spectrogram):
+        for _ in range(self.num_freq_masks):
+            spectrogram = self.freq_mask(spectrogram)
+        for _ in range(self.num_time_masks):
+            spectrogram = self.time_mask(spectrogram)
+        return spectrogram
 
 
 class Wav2VecModelNoWarmup(pl.LightningModule):
@@ -86,12 +102,10 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         # SpecAugment with TimeMasking and FrequencyMasking only but no TimeStretching
         # Implemented by torchaudio.transforms.TimeMasking and torchaudio.transforms.FrequencyMasking
         if "spec_augment" in self.cfg.model.keys() and self.cfg.model["spec_augment"]:
-            self.time_masking = torchaudio.transforms.TimeMasking(
-                time_mask_param=cfg.model["time_mask_param"], p=0.3
-            )
-            self.freq_masking = torchaudio.transforms.FrequencyMasking(
-                freq_mask_param=cfg.model["freq_mask_param"]
-            )
+            self.spec_augment = SpecAugment(freq_mask_param=self.model.freq_mask_param, 
+                                            time_mask_param=self.model.time_mask_param, 
+                                            num_freq_masks=self.model.num_freq_masks, 
+                                            num_time_masks=self.model.num_time_masks=)
 
         self.automatic_optimization = False
         if (
@@ -210,7 +224,14 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         return loss
 
     def forward(self, x, xlens):
-        x, xlens = self.wav2vec(x, xlens)
+        if "specaug" in self.cfg.training.keys() and self.cfg.training["specaug"] and self.trainer.is_training:
+            x, xlens = self.wav2vec.feature_extractor(x, xlens)
+            x = self.spec_augment(x)
+            x, xlens = self.wav2vec.encoder(x, xlens)
+        elif not self.cfg.training["specaug"]:
+            x, xlens = self.wav2vec(x, xlens)
+
+
         x = self.batch_norm(x.permute(0, 2, 1))
         x = x.permute(0, 2, 1)
         x = self.output_layer(x)
