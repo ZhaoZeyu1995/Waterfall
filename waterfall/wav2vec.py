@@ -12,11 +12,14 @@ from waterfall.utils.datapipe import Lang
 import time
 import torchaudio.transforms as T
 
+
 class SpecAugment(torch.nn.Module):
-    def __init__(self, freq_mask_param, time_mask_param, num_freq_masks=1, num_time_masks=1):
+    def __init__(
+        self, freq_mask_param, time_mask_param, num_freq_masks=1, num_time_masks=1
+    ):
         super(SpecAugment, self).__init__()
         self.freq_mask = T.FrequencyMasking(freq_mask_param)
-        self.time_mask = T.TimeMasking(time_mask_param, 0.5)
+        self.time_mask = T.TimeMasking(time_mask_param, p=0.5)
         self.num_freq_masks = num_freq_masks
         self.num_time_masks = num_time_masks
 
@@ -102,10 +105,12 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         # SpecAugment with TimeMasking and FrequencyMasking only but no TimeStretching
         # Implemented by torchaudio.transforms.TimeMasking and torchaudio.transforms.FrequencyMasking
         if "spec_augment" in self.cfg.model.keys() and self.cfg.model["spec_augment"]:
-            self.spec_augment = SpecAugment(freq_mask_param=self.model.freq_mask_param, 
-                                            time_mask_param=self.model.time_mask_param, 
-                                            num_freq_masks=self.model.num_freq_masks, 
-                                            num_time_masks=self.model.num_time_masks=)
+            self.spec_augment = SpecAugment(
+                freq_mask_param=self.model.freq_mask_param,
+                time_mask_param=self.model.time_mask_param,
+                num_freq_masks=self.model.num_freq_masks,
+                num_time_masks=self.model.num_time_masks,
+            )
 
         self.automatic_optimization = False
         if (
@@ -135,7 +140,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
                     ].parameters():
                         para.requires_grad = True
 
-    def compute_loss(self, batch, batch_idx=None):
+    def compute_loss(self, batch, batch_idx=None, is_training=False):
         if self.cfg.training.loss in ["k2"]:
             wavs = batch["wavs"]
             lengths = batch["wav_lens"]
@@ -223,14 +228,17 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
 
         return loss
 
-    def forward(self, x, xlens):
-        if "specaug" in self.cfg.training.keys() and self.cfg.training["specaug"] and self.trainer.is_training:
+    def forward(self, x, xlens, is_training=False):
+        if (
+            is_training
+            and "specaug" in self.cfg.training.keys()
+            and self.cfg.training["specaug"]
+        ):
             x, xlens = self.wav2vec.feature_extractor(x, xlens)
             x = self.spec_augment(x)
             x, xlens = self.wav2vec.encoder(x, xlens)
-        elif not self.cfg.training["specaug"]:
+        else:
             x, xlens = self.wav2vec(x, xlens)
-
 
         x = self.batch_norm(x.permute(0, 2, 1))
         x = x.permute(0, 2, 1)
@@ -249,7 +257,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
             "accumulate_grad_batches" not in self.cfg.training.keys()
             or self.cfg.training["accumulate_grad_batches"] == 1
         ):
-            loss = self.compute_loss(batch, batch_idx)
+            loss = self.compute_loss(batch, batch_idx, is_training=True)
 
             self.log(
                 "loss",
@@ -288,7 +296,7 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
                 opt_wav2vec.step()
         else:
             loss = (
-                self.compute_loss(batch, batch_idx)
+                self.compute_loss(batch, batch_idx, is_training=True)
                 / self.cfg.training["accumulate_grad_batches"]
             )
 
