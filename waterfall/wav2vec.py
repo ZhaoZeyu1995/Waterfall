@@ -106,10 +106,10 @@ class Wav2VecModelNoWarmup(pl.LightningModule):
         # Implemented by torchaudio.transforms.TimeMasking and torchaudio.transforms.FrequencyMasking
         if "spec_augment" in self.cfg.model.keys() and self.cfg.model["spec_augment"]:
             self.spec_augment = SpecAugment(
-                freq_mask_param=self.model.freq_mask_param,
-                time_mask_param=self.model.time_mask_param,
-                num_freq_masks=self.model.num_freq_masks,
-                num_time_masks=self.model.num_time_masks,
+                freq_mask_param=self.cfg.model.freq_mask_param,
+                time_mask_param=self.cfg.model.time_mask_param,
+                num_freq_masks=self.cfg.model.num_freq_masks,
+                num_time_masks=self.cfg.model.num_time_masks,
             )
 
         self.automatic_optimization = False
