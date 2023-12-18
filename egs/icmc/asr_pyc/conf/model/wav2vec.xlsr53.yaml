@@ -1,4 +1,4 @@
-model: WAV2VEC2_XLSR_300M
+model: WAV2VEC2_XLSR53
 encoder_output_size: 1024
 finetune_layers: 12
 ratio_th: 4
@@ -9,5 +9,5 @@ min_frames: 25
 spec_augment: true
 time_mask_param: 40
 num_time_masks: 5
-freq_mask_param: 50
-num_freq_masks: 8
+freq_mask_param: 30
+num_freq_masks: 5
